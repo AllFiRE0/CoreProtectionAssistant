@@ -1,23 +1,17 @@
 package ru.allfire.coreprotectionassistant.managers;
 
-import com.google.gson.Gson;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
 
+import java.sql.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class StaffManager {
     
     private final CoreProtectionAssistant plugin;
-    private final Gson gson = new Gson();
-    
-    // Кэш действий для быстрого доступа
     private final Map<UUID, StaffStats> statsCache = new ConcurrentHashMap<>();
-    
-    // Отслеживание частых телепортов
     private final Map<UUID, List<Long>> teleportHistory = new ConcurrentHashMap<>();
     
     public StaffManager(CoreProtectionAssistant plugin) {
@@ -31,38 +25,24 @@ public class StaffManager {
             Arrays.copyOfRange(args, 1, args.length)) : null;
         
         logStaffAction(staff, action, target, details);
-        
-        // Обновляем abuse score в зависимости от команды
         updateAbuseScore(staff, command, args);
     }
     
     public void logStaffAction(Player staff, String action, String target, String details) {
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
-                String sql = """
-                    INSERT INTO cpa_staff_actions 
-                    (staff_uuid, staff_name, action, target, details, world, x, y, z, timestamp) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """;
+                plugin.getDatabaseManager().logStaffAction(
+                    staff.getUniqueId(),
+                    staff.getName(),
+                    action,
+                    target,
+                    details,
+                    staff.getWorld().getName(),
+                    staff.getLocation().getX(),
+                    staff.getLocation().getY(),
+                    staff.getLocation().getZ()
+                ).join();
                 
-                try (var conn = plugin.getDatabaseManager().getConnection();
-                     var ps = conn.prepareStatement(sql)) {
-                    
-                    ps.setString(1, staff.getUniqueId().toString());
-                    ps.setString(2, staff.getName());
-                    ps.setString(3, action);
-                    ps.setString(4, target);
-                    ps.setString(5, details);
-                    ps.setString(6, staff.getWorld().getName());
-                    ps.setDouble(7, staff.getLocation().getX());
-                    ps.setDouble(8, staff.getLocation().getY());
-                    ps.setDouble(9, staff.getLocation().getZ());
-                    ps.setLong(10, System.currentTimeMillis());
-                    
-                    ps.executeUpdate();
-                }
-                
-                // Обновляем кэш
                 StaffStats stats = statsCache.computeIfAbsent(
                     staff.getUniqueId(), k -> new StaffStats()
                 );
@@ -88,11 +68,8 @@ public class StaffManager {
         
         long now = System.currentTimeMillis();
         times.add(now);
-        
-        // Удаляем старые записи (старше 1 часа)
         times.removeIf(t -> now - t > 3600000);
         
-        // Если больше 10 телепортов за час - повышаем abuse score
         if (times.size() > 10) {
             plugin.getAbuseScoreManager().addScore(
                 staff.getUniqueId(),
@@ -158,7 +135,6 @@ public class StaffManager {
         return statsCache.computeIfAbsent(uuid, k -> {
             StaffStats stats = new StaffStats();
             
-            // Загружаем из БД асинхронно
             plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
                 try {
                     String sql = """
@@ -172,11 +148,11 @@ public class StaffManager {
                         WHERE staff_uuid = ?
                     """;
                     
-                    try (var conn = plugin.getDatabaseManager().getConnection();
-                         var ps = conn.prepareStatement(sql)) {
+                    try (Connection conn = plugin.getDatabaseManager().getConnection();
+                         PreparedStatement ps = conn.prepareStatement(sql)) {
                         
                         ps.setString(1, uuid.toString());
-                        var rs = ps.executeQuery();
+                        ResultSet rs = ps.executeQuery();
                         
                         if (rs.next()) {
                             stats.bansCount = rs.getInt("bans");
