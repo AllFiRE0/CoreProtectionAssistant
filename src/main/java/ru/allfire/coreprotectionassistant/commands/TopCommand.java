@@ -3,6 +3,7 @@ package ru.allfire.coreprotectionassistant.commands;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
 import ru.allfire.coreprotectionassistant.utils.Color;
 
@@ -86,27 +87,30 @@ public class TopCommand implements CommandManager.SubCommand {
             String typeName = plugin.getConfigManager().getLangConfig()
                 .getString("messages.top_types." + type, type);
             
-            sender.sendMessage(Color.colorize(
-                plugin.getConfigManager().getLangConfig().getString("messages.top_header",
-                    "&8&m-----&r &cTop: &f%type% &8(Page %page%) &8&m-----")
-                    .replace("%type%", typeName)
-                    .replace("%page%", String.valueOf(finalPage))
-            ));
-            
-            if (topList.isEmpty()) {
-                sender.sendMessage(Color.colorize("&7No data available"));
-                return;
-            }
-            
-            int position = (finalPage - 1) * 10 + 1;
-            for (TopEntry entry : topList) {
-                String format = plugin.getConfigManager().getLangConfig()
-                    .getString("messages.top_format", "&f#%position% &7- &f%player% &8| &7%value%")
-                    .replace("%position%", String.valueOf(position++))
-                    .replace("%player%", entry.playerName)
-                    .replace("%value%", formatValue(type, entry.value));
-                sender.sendMessage(Color.colorize(format));
-            }
+            // Отправляем сообщения в основном потоке
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                sender.sendMessage(Color.colorize(
+                    plugin.getConfigManager().getLangConfig().getString("messages.top_header",
+                        "&8&m-----&r &cTop: &f%type% &8(Page %page%) &8&m-----")
+                        .replace("%type%", typeName)
+                        .replace("%page%", String.valueOf(finalPage))
+                ));
+                
+                if (topList.isEmpty()) {
+                    sender.sendMessage(Color.colorize("&7No data available"));
+                    return;
+                }
+                
+                int position = (finalPage - 1) * 10 + 1;
+                for (TopEntry entry : topList) {
+                    String format = plugin.getConfigManager().getLangConfig()
+                        .getString("messages.top_format", "&f#%position% &7- &f%player% &8| &7%value%")
+                        .replace("%position%", String.valueOf(position++))
+                        .replace("%player%", entry.playerName)
+                        .replace("%value%", formatValue(type, entry.value));
+                    sender.sendMessage(Color.colorize(format));
+                }
+            });
         });
         
         return true;
@@ -124,34 +128,43 @@ public class TopCommand implements CommandManager.SubCommand {
                 GROUP BY player_uuid, player_name 
                 ORDER BY value DESC 
                 LIMIT 10 OFFSET ?
-            """;
+                """;
             case "reports" -> """
                 SELECT target_name as player_name, COUNT(*) as value 
                 FROM cpa_reports 
                 GROUP BY target_uuid, target_name 
                 ORDER BY value DESC 
                 LIMIT 10 OFFSET ?
-            """;
+                """;
             default -> """
                 SELECT player_name, 0 as value 
                 FROM cpa_player_sessions 
                 GROUP BY player_name 
-                LIMIT 0
-            """;
+                ORDER BY player_name
+                LIMIT 10 OFFSET ?
+                """;
         };
         
         try (Connection conn = plugin.getDatabaseManager().getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             
             ps.setInt(1, offset);
-            ResultSet rs = ps.executeQuery();
             
-            while (rs.next()) {
-                list.add(new TopEntry(
-                    rs.getString("player_name"),
-                    rs.getInt("value")
-                ));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String playerName = rs.getString("player_name");
+                    int value = rs.getInt("value");
+                    
+                    // Для типов, которые берутся из CoreProtect
+                    if (!type.equals("warnings") && !type.equals("reports")) {
+                        // Заглушка - в будущем можно добавить запросы к CoreProtect
+                        value = 0;
+                    }
+                    
+                    list.add(new TopEntry(playerName, value));
+                }
             }
+            
         } catch (SQLException e) {
             plugin.getLogger().severe("Failed to get top list: " + e.getMessage());
         }
@@ -184,7 +197,7 @@ public class TopCommand implements CommandManager.SubCommand {
                 .toList();
         }
         if (args.length == 2) {
-            return List.of("1", "2", "3");
+            return List.of("1", "2", "3", "4", "5");
         }
         return List.of();
     }
