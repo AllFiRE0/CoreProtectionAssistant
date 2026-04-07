@@ -1,0 +1,146 @@
+# CoreProtectionAssistant - Unified Chat Rules
+# Author: AllF1RE
+#
+# action types:
+#   punish  - выдать наказание
+#   apology - снять предупреждения
+#   notify  - только уведомление
+
+global:
+  enabled: true
+  mode: "strict"
+  replacement: "***"
+  cooldown_ticks: 60
+  check_chat: true
+  check_commands: true
+  logging:
+    enabled: true
+    file: "logs/chat_rules.log"
+
+exclusions:
+  permissions:
+    - "cpa.bypass.chat"
+    - "cpa.admin"
+  players: []
+  groups:
+    - "admin"
+
+punishment:
+  recidivism:
+    enabled: true
+    time_window_ticks: 72000
+    levels:
+      2:
+        duration_multiplier: 1.5
+        commands:
+          - "message! &cВторое нарушение за час!"
+      3:
+        duration_multiplier: 2.0
+        commands:
+          - "message! &cТретье нарушение!"
+      4:
+        override_punishment: "ban"
+        duration_ticks: 864000
+        commands:
+          - "message! &4Много нарушений! Бан на 24 часа."
+
+apology:
+  global_cooldown_ticks: 48000
+  max_warnings_clear_per_day: 5
+  require_target: true
+
+rules:
+  # === НАКАЗАНИЯ ===
+  severe_insult:
+    enabled: true
+    priority: 100
+    regex: "(?i)(твою мать|твою маму|fuck you|motherfucker)"
+    action: "punish"
+    punishment: "ban"
+    duration_ticks: 6048000
+    can_be_apologized: true
+    commands:
+      - "message! &4&l⛔ &7Тяжелое оскорбление! Бан на 7 дней."
+      - "asConsole! ban %player_name% 7d Тяжелое оскорбление - CPA"
+
+  medium_swear:
+    enabled: true
+    priority: 80
+    regex: "(?i)(бля|сука|пизд|хуй|fuck|shit|bitch)"
+    action: "punish"
+    punishment: "warn"
+    duration_ticks: 36000
+    additional_punishment: "mute"
+    additional_duration_ticks: 18000
+    can_be_apologized: true
+    commands:
+      - "message! &c&l⚠ &7Мат! Предупреждение + мут 15 мин."
+      - "asConsole! cpa warn %player_name% Нецензурная лексика"
+      - "asConsole! mute %player_name% 15m Мат - CPA"
+
+  light_swear:
+    enabled: true
+    priority: 60
+    regex: "(?i)(дурак|идиот|дебил|тупой|dumb|stupid)"
+    action: "punish"
+    punishment: "warn"
+    duration_ticks: 12000
+    can_be_apologized: true
+    commands:
+      - "message! &e&l⚠ &7Оскорбление! Предупреждение на 10 мин."
+      - "asConsole! cpa warn %player_name% Оскорбление"
+
+  racism:
+    enabled: true
+    priority: 200
+    regex: "(?i)(ниггер|нига|чурка|расист|nigger|faggot)"
+    action: "punish"
+    punishment: "ban"
+    duration_ticks: 2592000
+    can_be_apologized: false
+    commands:
+      - "message! &4&l⛔ &7Расизм! Бан на 30 дней."
+      - "asConsole! ban %player_name% 30d Расизм - CPA"
+
+  advertising:
+    enabled: true
+    priority: 90
+    regex: "(?i)(заходите|айпи|ip:|play\\.|mc\\.|реклама)"
+    action: "punish"
+    punishment: "mute"
+    duration_ticks: 864000
+    additional_punishment: "warn"
+    can_be_apologized: true
+    commands:
+      - "message! &c&l⛔ &7Реклама! Мут 24ч + предупреждение."
+
+  # === ИЗВИНЕНИЯ ===
+  simple_apology:
+    enabled: true
+    priority: 15
+    regex: "(?i)(прости|извини|сорри|sorry|виноват)"
+    action: "apology"
+    warnings_clear: 1
+    require_target: true
+    commands:
+      - "message! &a&l✔ &7Извинение принято! -1 варн."
+      - "message_target! &a&l✔ &f%player_name% &7извинился перед вами!"
+
+  deep_apology:
+    enabled: true
+    priority: 25
+    regex: "(?i)(я был неправ|обещаю|искренне|жалею)"
+    action: "apology"
+    warnings_clear: 2
+    require_target: true
+    commands:
+      - "message! &a&l✿ &7Глубокое извинение! -2 варна."
+
+  # === УВЕДОМЛЕНИЯ ===
+  spam_caps:
+    enabled: true
+    priority: 10
+    regex: "^[A-ZА-ЯЁ\\s]{30,}$"
+    action: "notify"
+    commands:
+      - "message! &e&l⚠ &7Не злоупотребляйте ЗАГЛАВНЫМИ буквами."
