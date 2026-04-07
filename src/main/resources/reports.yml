@@ -1,0 +1,72 @@
+# CoreProtectionAssistant - Reports Configuration
+# Author: AllF1RE
+
+reports:
+  enabled: true
+  cooldown_seconds: 60
+  min_playtime_hours: 1
+  max_reports_per_player_per_hour: 5
+  max_reports_per_target_per_hour: 10
+  report_abuse_threshold: 8
+  notify_staff: true
+  cleanup_days: 30
+
+categories:
+  griefing:
+    regex: "(?i)(грифер|сломал|разрушил|украл|grief|ворует)"
+    weight: 3
+    description: "Гриферство / Кража"
+    color: "&c"
+    
+  cheating:
+    regex: "(?i)(читы|читер|cheat|hack|киллаура|killaura|флай|xray)"
+    weight: 5
+    description: "Читерство"
+    color: "&4"
+    
+  offensive_language:
+    regex: "(?i)(мат|оскорб|токсик|грубит|rude|toxic)"
+    weight: 2
+    description: "Оскорбления"
+    color: "&e"
+    
+  spam_flood:
+    regex: "(?i)(спам|флуд|спамит|флудит|spam|flood)"
+    weight: 1
+    description: "Спам / Флуд"
+    color: "&6"
+    
+  trolling:
+    regex: "(?i)(тролл|мешает|бесит|troll)"
+    weight: 2
+    description: "Троллинг"
+    color: "&d"
+    
+  other:
+    regex: ".*"
+    weight: 1
+    description: "Другое"
+    color: "&7"
+
+violator_analysis:
+  enabled: true
+  min_playtime_hours: 5
+  max_warnings_threshold: 3
+  max_reports_threshold: 5
+  actions:
+    auto_warn:
+      enabled: true
+      threshold: 3
+      commands:
+        - "asConsole! cpa warn %target% Много жалоб от игроков"
+        - "broadcast! &c[CPA] &f%target% &7получил предупреждение из-за жалоб!"
+
+anti_abuse:
+  enabled: true
+  actions:
+    warn_reporter:
+      enabled: true
+      threshold: 5
+      commands:
+        - "message! &cВы отправляете слишком много жалоб!"
+        - "asConsole! cpa warn %reporter% Спам жалобами"
