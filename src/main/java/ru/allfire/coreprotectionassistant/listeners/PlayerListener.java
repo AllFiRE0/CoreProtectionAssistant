@@ -8,8 +8,6 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
 
-import java.util.UUID;
-
 public class PlayerListener implements Listener {
     
     private final CoreProtectionAssistant plugin;
@@ -22,16 +20,18 @@ public class PlayerListener implements Listener {
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         
-        // Сохраняем вход
+        // Сохраняем вход в основном потоке
         plugin.getDatabaseManager().logPlayerJoin(player);
         
-        // Проверяем запрещенные права
+        // Проверяем запрещенные права АСИНХРОННО
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
             checkProhibitedPermissions(player);
         });
         
-        // Обновляем кэш
-        plugin.getCoreProtectHook().updatePlayerCache(player.getUniqueId());
+        // Обновляем кэш CoreProtect
+        if (plugin.getCoreProtectHook().isEnabled()) {
+            plugin.getCoreProtectHook().updatePlayerCache(player.getUniqueId());
+        }
     }
     
     @EventHandler(priority = EventPriority.MONITOR)
@@ -40,31 +40,35 @@ public class PlayerListener implements Listener {
         
         // Сохраняем выход
         plugin.getDatabaseManager().logPlayerQuit(player);
-        
-        // Очищаем временные данные
-        plugin.getChatRuleManager().resetDailyApologies();
     }
     
     private void checkProhibitedPermissions(Player player) {
         var prohibitedPerms = plugin.getConfigManager().getMainConfig()
             .getStringList("prohibited_permissions");
         
+        boolean hasProhibited = false;
+        
         for (String perm : prohibitedPerms) {
             if (player.hasPermission(perm)) {
+                hasProhibited = true;
+                
                 // Логируем
                 plugin.getDatabaseManager().logProhibitedPermission(
                     player.getUniqueId(), perm
                 );
                 
-                // Уведомляем если игрок - персонал
-                if (player.hasPermission("cpa.staff")) {
-                    plugin.getAbuseScoreManager().addScore(
-                        player.getUniqueId(), 
-                        "prohibited_permission", 
-                        15
-                    );
-                }
+                plugin.getLogger().warning("Player " + player.getName() + 
+                    " has prohibited permission: " + perm);
             }
+        }
+        
+        // Если есть запрещённые права и игрок - персонал
+        if (hasProhibited && player.hasPermission("cpa.staff")) {
+            plugin.getAbuseScoreManager().addScore(
+                player.getUniqueId(), 
+                "prohibited_permission", 
+                15
+            );
         }
     }
 }
