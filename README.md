@@ -1,32 +1,6 @@
-Поздравляю со сборкой! 🎉
 
-Давай дополним `README.md`, чтобы он был **полным и профессиональным**:
-
-```markdown
-# CoreProtectionAssistant
-
-[![Build Status](https://img.shields.io/github/actions/workflow/status/AllFiRE0/CoreProtectionAssistant/build.yml)](https://github.com/AllFiRE0/CoreProtectionAssistant/actions)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue)](https://github.com/AllFiRE0/CoreProtectionAssistant/releases)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Java](https://img.shields.io/badge/Java-21-orange)](https://adoptium.net/)
 
 Advanced staff monitoring and player protection system for Minecraft servers.
-
----
-
-## 📖 Overview
-
-CoreProtectionAssistant (CPA) is a **zero-trust** staff monitoring and player reputation system. It tracks staff actions, analyzes player behavior, and provides detailed statistics without creating new menus — all data is accessible via PlaceholderAPI for use in other plugins (CMI, DeluxeMenus, ItemsAdder, etc.).
-
-**Key principle:** The plugin doesn't store data that already exists elsewhere — it reads from CoreProtect, CMI, and LuckPerms.
-
----
-
-## 👤 Author
-
-**AllF1RE**
-- GitHub: [AllFiRE0](https://github.com/AllFiRE0)
-- VK: [@allfire](https://vk.com/allfire)
 
 ---
 
