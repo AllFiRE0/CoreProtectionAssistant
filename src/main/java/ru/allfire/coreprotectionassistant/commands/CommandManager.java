@@ -1,5 +1,6 @@
 package ru.allfire.coreprotectionassistant.commands;
 
+import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -27,7 +28,7 @@ public class CommandManager implements CommandExecutor, TabCompleter {
         registerSubCommand(new CheckCommand(plugin));
         registerSubCommand(new WarnCommand(plugin));
         registerSubCommand(new ReloadCommand(plugin));
-        registerSubCommand(new ReportCommand(plugin));
+        registerSubCommand(new ReportSubCommand(plugin));
         
         var mainCommand = plugin.getCommand("coreprotectionassistant");
         if (mainCommand != null) {
@@ -37,7 +38,7 @@ public class CommandManager implements CommandExecutor, TabCompleter {
         
         var reportCommand = plugin.getCommand("report");
         if (reportCommand != null) {
-            reportCommand.setExecutor(new ReportCommand(plugin));
+            reportCommand.setExecutor(new ReportCommandExecutor(plugin));
         }
     }
     
@@ -61,18 +62,12 @@ public class CommandManager implements CommandExecutor, TabCompleter {
         SubCommand subCommand = subCommands.get(subCommandName);
         
         if (subCommand == null) {
-            sender.sendMessage(Color.colorize(
-                plugin.getConfigManager().getLangConfig().getString("messages.unknown_command",
-                    "%prefix% &cUnknown command. Use &f/cpa help")
-            ));
+            sender.sendMessage(Color.colorize("&cUnknown command. Use /cpa help"));
             return true;
         }
         
         if (!sender.hasPermission(subCommand.getPermission())) {
-            sender.sendMessage(Color.colorize(
-                plugin.getConfigManager().getLangConfig().getString("messages.no_permission",
-                    "%prefix% &cNo permission")
-            ));
+            sender.sendMessage(Color.colorize("&cNo permission"));
             return true;
         }
         
@@ -81,9 +76,8 @@ public class CommandManager implements CommandExecutor, TabCompleter {
         try {
             return subCommand.execute(sender, subArgs);
         } catch (Exception e) {
-            sender.sendMessage(Color.colorize("&cError executing command: " + e.getMessage()));
+            sender.sendMessage(Color.colorize("&cError executing command"));
             plugin.getLogger().severe("Error executing command " + subCommandName + ": " + e.getMessage());
-            e.printStackTrace();
             return true;
         }
     }
@@ -113,45 +107,3 @@ public class CommandManager implements CommandExecutor, TabCompleter {
             String[] subArgs = Arrays.copyOfRange(args, 1, args.length);
             return subCommand.tabComplete(sender, subArgs);
         }
-        
-        return List.of();
-    }
-    
-    private void sendHelp(CommandSender sender) {
-        var lang = plugin.getConfigManager().getLangConfig();
-        
-        sender.sendMessage(Color.colorize(lang.getString("messages.help_header",
-            "&8&m-----&r &c&lCoreProtectionAssistant &8&m-----")));
-        
-        for (SubCommand cmd : subCommands.values()) {
-            if (sender.hasPermission(cmd.getPermission())) {
-                // Показываем только основное имя, не алиасы
-                if (cmd.getName().equals(cmd.getName().toLowerCase())) {
-                    sender.sendMessage(Color.colorize(
-                        lang.getString("messages.help_" + cmd.getName(),
-                            "&f/cpa " + cmd.getName() + " &7- " + cmd.getDescription())
-                    ));
-                }
-            }
-        }
-    }
-    
-    public interface SubCommand {
-        String getName();
-        String[] getAliases();
-        String getDescription();
-        String getUsage();
-        String getPermission();
-        boolean execute(CommandSender sender, String[] args);
-        
-        default List<String> tabComplete(CommandSender sender, String[] args) {
-            if (args.length == 1) {
-                return Bukkit.getOnlinePlayers().stream()
-                    .map(Player::getName)
-                    .filter(n -> n.toLowerCase().startsWith(args[0].toLowerCase()))
-                    .toList();
-            }
-            return List.of();
-        }
-    }
-}
