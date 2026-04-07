@@ -44,6 +44,13 @@ public class DatabaseManager {
         }
     }
     
+    /**
+     * Получить соединение с базой данных
+     */
+    public Connection getConnection() throws SQLException {
+        return database.getConnection();
+    }
+    
     // ========== COMMAND LOGS ==========
     
     public CompletableFuture<Void> saveCommandLog(CommandLog log) {
@@ -53,7 +60,7 @@ public class DatabaseManager {
                 "world, x, y, z, timestamp, is_staff) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             
-            try (Connection conn = database.getConnection();
+            try (Connection conn = getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
                 
                 ps.setString(1, log.getPlayerUuid() != null ? 
@@ -84,7 +91,7 @@ public class DatabaseManager {
                 "(player_uuid, player_name, command, args, world, x, y, z, timestamp) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
             
-            try (Connection conn = database.getConnection();
+            try (Connection conn = getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
                 
                 ps.setString(1, player.getUniqueId().toString());
@@ -112,7 +119,7 @@ public class DatabaseManager {
                 "(player_uuid, player_name, action, world, x, y, z, timestamp) " +
                 "VALUES (?, ?, 'JOIN', ?, ?, ?, ?, ?)";
             
-            try (Connection conn = database.getConnection();
+            try (Connection conn = getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
                 
                 ps.setString(1, player.getUniqueId().toString());
@@ -136,7 +143,7 @@ public class DatabaseManager {
                 "(player_uuid, player_name, action, world, x, y, z, timestamp) " +
                 "VALUES (?, ?, 'QUIT', ?, ?, ?, ?, ?)";
             
-            try (Connection conn = database.getConnection();
+            try (Connection conn = getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
                 
                 ps.setString(1, player.getUniqueId().toString());
@@ -163,7 +170,7 @@ public class DatabaseManager {
                 "(player_uuid, player_name, rule_name, punishment, timestamp) " +
                 "VALUES (?, ?, ?, ?, ?)";
             
-            try (Connection conn = database.getConnection();
+            try (Connection conn = getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
                 
                 ps.setString(1, player.getUniqueId().toString());
@@ -186,7 +193,7 @@ public class DatabaseManager {
             String sql = "INSERT INTO cpa_prohibited_perms " +
                 "(player_uuid, permission, timestamp) VALUES (?, ?, ?)";
             
-            try (Connection conn = database.getConnection();
+            try (Connection conn = getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
                 
                 ps.setString(1, uuid.toString());
@@ -200,13 +207,45 @@ public class DatabaseManager {
         });
     }
     
+    // ========== STAFF ACTIONS ==========
+    
+    public CompletableFuture<Void> logStaffAction(UUID staffUuid, String staffName, 
+                                                   String action, String target, 
+                                                   String details, String world, 
+                                                   double x, double y, double z) {
+        return CompletableFuture.runAsync(() -> {
+            String sql = "INSERT INTO cpa_staff_actions " +
+                "(staff_uuid, staff_name, action, target, details, world, x, y, z, timestamp) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            
+            try (Connection conn = getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sql)) {
+                
+                ps.setString(1, staffUuid.toString());
+                ps.setString(2, staffName);
+                ps.setString(3, action);
+                ps.setString(4, target);
+                ps.setString(5, details);
+                ps.setString(6, world);
+                ps.setDouble(7, x);
+                ps.setDouble(8, y);
+                ps.setDouble(9, z);
+                ps.setLong(10, System.currentTimeMillis());
+                
+                ps.executeUpdate();
+            } catch (SQLException e) {
+                plugin.getLogger().severe("Failed to log staff action: " + e.getMessage());
+            }
+        });
+    }
+    
     // ========== QUERIES ==========
     
     public CompletableFuture<Integer> getViolationCount(UUID uuid) {
         return CompletableFuture.supplyAsync(() -> {
             String sql = "SELECT COUNT(*) FROM cpa_chat_violations WHERE player_uuid = ?";
             
-            try (Connection conn = database.getConnection();
+            try (Connection conn = getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
                 
                 ps.setString(1, uuid.toString());
@@ -227,7 +266,7 @@ public class DatabaseManager {
             String sql = "SELECT timestamp FROM cpa_chat_violations " +
                 "WHERE player_uuid = ? ORDER BY timestamp DESC LIMIT 1";
             
-            try (Connection conn = database.getConnection();
+            try (Connection conn = getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
                 
                 ps.setString(1, uuid.toString());
@@ -248,7 +287,7 @@ public class DatabaseManager {
             String sql = "SELECT COUNT(*) FROM cpa_command_logs " +
                 "WHERE player_uuid = ? AND command = ?";
             
-            try (Connection conn = database.getConnection();
+            try (Connection conn = getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
                 
                 ps.setString(1, uuid.toString());
