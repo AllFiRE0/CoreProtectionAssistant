@@ -35,20 +35,35 @@ public class CommandExecutor {
         
         if (processed.contains("!")) {
             String[] parts = processed.split("!", 2);
-            prefix = parts[0];
+            prefix = parts[0].toLowerCase();
             cmd = parts[1];
         }
         
-        // Выполняем в зависимости от префикса
-        switch (prefix.toLowerCase()) {
-            case "asconsole" -> {
-                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), Color.strip(cmd));
-            }
-            case "asplayer" -> {
-                if (player != null) {
-                    player.performCommand(Color.strip(cmd));
+        final String finalCmd = cmd;
+        final String finalPrefix = prefix;
+        
+        // ВАЖНО: Выполняем команды в ОСНОВНОМ потоке сервера!
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            switch (finalPrefix) {
+                case "asconsole" -> {
+                    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), Color.strip(finalCmd));
+                }
+                case "asplayer" -> {
+                    if (player != null) {
+                        player.performCommand(Color.strip(finalCmd));
+                    }
+                }
+                case "broadcast" -> {
+                    Bukkit.broadcastMessage(Color.colorize(finalCmd));
+                }
+                default -> {
+                    // Остальные префиксы не требуют синхронизации с основным потоком
                 }
             }
+        });
+        
+        // Эти действия можно выполнять асинхронно
+        switch (prefix) {
             case "message" -> {
                 if (player != null) {
                     player.sendMessage(Color.colorize(cmd));
@@ -61,9 +76,6 @@ public class CommandExecutor {
                         targetPlayer.sendMessage(Color.colorize(cmd));
                     }
                 }
-            }
-            case "broadcast" -> {
-                Bukkit.broadcastMessage(Color.colorize(cmd));
             }
             case "title" -> {
                 if (player != null) {
@@ -93,28 +105,9 @@ public class CommandExecutor {
                     }
                 }
             }
-            case "delay" -> {
-                try {
-                    int ticks = Integer.parseInt(cmd.trim());
-                    // Для delay нужно выполнять синхронно с задержкой
-                    // Это обрабатывается отдельно в вызывающем коде
-                } catch (NumberFormatException e) {
-                    plugin.getLogger().warning("Invalid delay ticks: " + cmd);
-                }
-            }
             case "log" -> {
                 plugin.getLogger().info("[CPA] " + Color.strip(cmd));
             }
-            default -> {
-                // Без префикса - выполняем от консоли
-                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), Color.strip(processed));
-            }
         }
-    }
-    
-    public static void executeWithDelay(CoreProtectionAssistant plugin, Player player, 
-                                         String target, String command, int delayTicks) {
-        plugin.getServer().getScheduler().runTaskLater(plugin, 
-            () -> execute(plugin, player, target, command), delayTicks);
     }
 }
