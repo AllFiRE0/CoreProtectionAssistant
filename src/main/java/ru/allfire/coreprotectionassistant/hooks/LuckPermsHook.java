@@ -1,35 +1,59 @@
 package ru.allfire.coreprotectionassistant.hooks;
 
-import net.luckperms.api.LuckPerms;
-import net.luckperms.api.LuckPermsProvider;
-import net.luckperms.api.model.user.User;
-import net.luckperms.api.node.Node;
 import org.bukkit.Bukkit;
+import org.bukkit.plugin.Plugin;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
 
+import java.lang.reflect.Method;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 public class LuckPermsHook {
     
     private final CoreProtectionAssistant plugin;
-    private LuckPerms luckPerms;
+    private Plugin luckPermsPlugin;
+    private Object luckPermsAPI;
+    private Method getUserManagerMethod;
+    private Method getUserMethod;
+    private Method getPrimaryGroupMethod;
+    private Method getNodesMethod;
+    private Method getKeyMethod;
     
     public LuckPermsHook(CoreProtectionAssistant plugin) {
         this.plugin = plugin;
     }
     
     public boolean init() {
-        if (!Bukkit.getPluginManager().isPluginEnabled("LuckPerms")) {
-            plugin.getLogger().warning("LuckPerms not found! Some features will be disabled.");
+        luckPermsPlugin = Bukkit.getPluginManager().getPlugin("LuckPerms");
+        
+        if (luckPermsPlugin == null) {
+            plugin.getLogger().info("LuckPerms not found. Permission checking disabled.");
             return false;
         }
         
         try {
-            luckPerms = LuckPermsProvider.get();
-            plugin.getLogger().info("LuckPerms hook initialized successfully");
+            // Получаем API через LuckPermsProvider.get()
+            Class<?> providerClass = Class.forName("net.luckperms.api.LuckPermsProvider");
+            Method getMethod = providerClass.getMethod("get");
+            luckPermsAPI = getMethod.invoke(null);
+            
+            // Получаем методы
+            getUserManagerMethod = luckPermsAPI.getClass().getMethod("getUserManager");
+            Object userManager = getUserManagerMethod.invoke(luckPermsAPI);
+            
+            getUserMethod = userManager.getClass().getMethod("getUser", UUID.class);
+            
+            Class<?> userClass = Class.forName("net.luckperms.api.model.user.User");
+            getPrimaryGroupMethod = userClass.getMethod("getPrimaryGroup");
+            getNodesMethod = userClass.getMethod("getNodes");
+            
+            Class<?> nodeClass = Class.forName("net.luckperms.api.node.Node");
+            getKeyMethod = nodeClass.getMethod("getKey");
+            
+            plugin.getLogger().info("LuckPerms hook initialized successfully (reflection)");
             return true;
+            
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to initialize LuckPerms hook: " + e.getMessage());
             return false;
@@ -37,49 +61,57 @@ public class LuckPermsHook {
     }
     
     public boolean isEnabled() {
-        return luckPerms != null;
+        return luckPermsAPI != null;
     }
     
     public Set<String> getPermissions(UUID uuid) {
-        if (!isEnabled()) return Set.of();
+        Set<String> permissions = new HashSet<>();
+        
+        if (!isEnabled()) return permissions;
         
         try {
-            User user = luckPerms.getUserManager().getUser(uuid);
-            if (user == null) return Set.of();
+            Object userManager = getUserManagerMethod.invoke(luckPermsAPI);
+            Object user = getUserMethod.invoke(userManager, uuid);
             
-            return user.getNodes().stream()
-                .map(Node::getKey)
-                .collect(Collectors.toSet());
-                
+            if (user != null) {
+                Object nodes = getNodesMethod.invoke(user);
+                if (nodes instanceof Iterable) {
+                    for (Object node : (Iterable<?>) nodes) {
+                        Object key = getKeyMethod.invoke(node);
+                        if (key instanceof String) {
+                            permissions.add((String) key);
+                        }
+                    }
+                }
+            }
         } catch (Exception e) {
-            return Set.of();
+            // Тишина
         }
+        
+        return permissions;
     }
     
     public String getPrimaryGroup(UUID uuid) {
-        if (!isEnabled()) return "";
+        if (!isEnabled()) return "default";
         
         try {
-            User user = luckPerms.getUserManager().getUser(uuid);
-            if (user == null) return "";
-            return user.getPrimaryGroup();
+            Object userManager = getUserManagerMethod.invoke(luckPermsAPI);
+            Object user = getUserMethod.invoke(userManager, uuid);
+            
+            if (user != null) {
+                Object group = getPrimaryGroupMethod.invoke(user);
+                if (group instanceof String) {
+                    return (String) group;
+                }
+            }
         } catch (Exception e) {
-            return "";
+            // Тишина
         }
+        
+        return "default";
     }
     
     public boolean hasPermission(UUID uuid, String permission) {
-        if (!isEnabled()) return false;
-        
-        try {
-            User user = luckPerms.getUserManager().getUser(uuid);
-            if (user == null) return false;
-            
-            return user.getNodes().stream()
-                .anyMatch(n -> n.getKey().equals(permission));
-                
-        } catch (Exception e) {
-            return false;
-        }
+        return getPermissions(uuid).contains(permission);
     }
 }
