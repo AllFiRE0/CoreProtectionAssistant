@@ -77,7 +77,7 @@ Single unified configuration for all chat interactions:
 rules:
   severe_insult:
     priority: 100
-    regex: "(?i)(fuck you|motherfucker)"
+    regex: "(?i)(fyou|motherlover)"
     action: "punish"
     punishment: "ban"
     duration_ticks: 6048000
