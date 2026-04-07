@@ -23,7 +23,7 @@
             <id>papermc</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
         </repository>
-        <!-- Maven Central (зеркало) -->
+        <!-- Maven Central -->
         <repository>
             <id>central</id>
             <url>https://repo.maven.apache.org/maven2</url>
@@ -32,11 +32,6 @@
         <repository>
             <id>placeholderapi</id>
             <url>https://repo.extendedclip.com/content/repositories/placeholderapi/</url>
-        </repository>
-        <!-- SpigotAPI -->
-        <repository>
-            <id>spigotmc-repo</id>
-            <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
         </repository>
         <!-- CodeMC -->
         <repository>
@@ -48,9 +43,9 @@
     <dependencies>
         <!-- Paper API -->
         <dependency>
-            <groupId>org.spigotmc</groupId>
-            <artifactId>spigot-api</artifactId>
-            <version>1.20.4-R0.1-SNAPSHOT</version>
+            <groupId>io.papermc.paper</groupId>
+            <artifactId>paper-api</artifactId>
+            <version>1.21.3-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
 
