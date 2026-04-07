@@ -39,75 +39,111 @@ public class CommandExecutor {
             cmd = parts[1];
         }
         
-        final String finalCmd = cmd;
+        final String finalCmd = cmd.trim();
         final String finalPrefix = prefix;
+        final Player finalPlayer = player;
+        final String finalTarget = target;
         
-        // ВАЖНО: Выполняем команды в ОСНОВНОМ потоке сервера!
-        Bukkit.getScheduler().runTask(plugin, () -> {
-            switch (finalPrefix) {
-                case "asconsole" -> {
-                    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), Color.strip(finalCmd));
-                }
-                case "asplayer" -> {
-                    if (player != null) {
-                        player.performCommand(Color.strip(finalCmd));
-                    }
-                }
-                case "broadcast" -> {
-                    Bukkit.broadcastMessage(Color.colorize(finalCmd));
-                }
-                default -> {
-                    // Остальные префиксы не требуют синхронизации с основным потоком
-                }
-            }
-        });
+        // Проверяем, в каком потоке мы находимся
+        boolean isPrimaryThread = Bukkit.isPrimaryThread();
         
-        // Эти действия можно выполнять асинхронно
-        switch (prefix) {
+        // Команды, которые МОГУТ выполняться асинхронно (сообщения, звуки, тайтлы)
+        switch (finalPrefix) {
             case "message" -> {
-                if (player != null) {
-                    player.sendMessage(Color.colorize(cmd));
+                if (finalPlayer != null) {
+                    finalPlayer.sendMessage(Color.colorize(finalCmd));
                 }
             }
             case "message_target" -> {
-                if (target != null) {
-                    Player targetPlayer = Bukkit.getPlayer(target);
+                if (finalTarget != null) {
+                    Player targetPlayer = Bukkit.getPlayer(finalTarget);
                     if (targetPlayer != null) {
-                        targetPlayer.sendMessage(Color.colorize(cmd));
+                        targetPlayer.sendMessage(Color.colorize(finalCmd));
                     }
                 }
             }
             case "title" -> {
-                if (player != null) {
-                    player.sendTitle(Color.colorize(cmd), "", 10, 70, 20);
+                if (finalPlayer != null) {
+                    finalPlayer.sendTitle(Color.colorize(finalCmd), "", 10, 70, 20);
                 }
             }
             case "subtitle" -> {
-                if (player != null) {
-                    player.sendTitle("", Color.colorize(cmd), 10, 70, 20);
+                if (finalPlayer != null) {
+                    finalPlayer.sendTitle("", Color.colorize(finalCmd), 10, 70, 20);
                 }
             }
             case "actionbar" -> {
-                if (player != null) {
-                    player.sendActionBar(net.kyori.adventure.text.Component.text(Color.colorize(cmd)));
+                if (finalPlayer != null) {
+                    finalPlayer.sendActionBar(net.kyori.adventure.text.Component.text(Color.colorize(finalCmd)));
                 }
             }
             case "sound" -> {
-                if (player != null) {
-                    String[] soundParts = cmd.split(" ");
+                if (finalPlayer != null) {
+                    String[] soundParts = finalCmd.split(" ");
                     try {
                         Sound sound = Sound.valueOf(soundParts[0].toUpperCase());
                         float volume = soundParts.length > 1 ? Float.parseFloat(soundParts[1]) : 1.0f;
                         float pitch = soundParts.length > 2 ? Float.parseFloat(soundParts[2]) : 1.0f;
-                        player.playSound(player.getLocation(), sound, volume, pitch);
+                        finalPlayer.playSound(finalPlayer.getLocation(), sound, volume, pitch);
                     } catch (IllegalArgumentException e) {
                         plugin.getLogger().warning("Invalid sound: " + soundParts[0]);
                     }
                 }
             }
             case "log" -> {
-                plugin.getLogger().info("[CPA] " + Color.strip(cmd));
+                plugin.getLogger().info("[CPA] " + Color.strip(finalCmd));
+            }
+            
+            // Команды, которые ДОЛЖНЫ выполняться в ОСНОВНОМ потоке
+            case "asconsole" -> {
+                if (isPrimaryThread) {
+                    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), Color.strip(finalCmd));
+                } else {
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), Color.strip(finalCmd));
+                    });
+                }
+            }
+            case "asplayer" -> {
+                if (finalPlayer != null) {
+                    if (isPrimaryThread) {
+                        finalPlayer.performCommand(Color.strip(finalCmd));
+                    } else {
+                        Bukkit.getScheduler().runTask(plugin, () -> {
+                            finalPlayer.performCommand(Color.strip(finalCmd));
+                        });
+                    }
+                }
+            }
+            case "broadcast" -> {
+                if (isPrimaryThread) {
+                    Bukkit.broadcastMessage(Color.colorize(finalCmd));
+                } else {
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        Bukkit.broadcastMessage(Color.colorize(finalCmd));
+                    });
+                }
+            }
+            
+            // Без префикса - по умолчанию выполняем от консоли в основном потоке
+            default -> {
+                if (finalCmd.startsWith("/")) {
+                    String strippedCmd = Color.strip(finalCmd.substring(1));
+                    if (isPrimaryThread) {
+                        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), strippedCmd);
+                    } else {
+                        Bukkit.getScheduler().runTask(plugin, () -> {
+                            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), strippedCmd);
+                        });
+                    }
+                }
             }
         }
+    }
+    
+    public static void executeWithDelay(CoreProtectionAssistant plugin, Player player, 
+                                         String target, String command, int delayTicks) {
+        plugin.getServer().getScheduler().runTaskLater(plugin, 
+            () -> execute(plugin, player, target, command), delayTicks);
     }
 }
