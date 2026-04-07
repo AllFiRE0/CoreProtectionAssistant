@@ -107,3 +107,37 @@ public class CommandManager implements CommandExecutor, TabCompleter {
             String[] subArgs = Arrays.copyOfRange(args, 1, args.length);
             return subCommand.tabComplete(sender, subArgs);
         }
+        
+        return List.of();
+    }
+    
+    private void sendHelp(CommandSender sender) {
+        sender.sendMessage(Color.colorize("&8&m-----&r &c&lCoreProtectionAssistant &8&m-----"));
+        
+        for (SubCommand cmd : subCommands.values()) {
+            if (cmd.getName().equals(cmd.getName().toLowerCase()) && 
+                sender.hasPermission(cmd.getPermission())) {
+                sender.sendMessage(Color.colorize("&f/cpa " + cmd.getName() + " &7- " + cmd.getDescription()));
+            }
+        }
+    }
+    
+    public interface SubCommand {
+        String getName();
+        String[] getAliases();
+        String getDescription();
+        String getUsage();
+        String getPermission();
+        boolean execute(CommandSender sender, String[] args);
+        
+        default List<String> tabComplete(CommandSender sender, String[] args) {
+            if (args.length == 1) {
+                return Bukkit.getOnlinePlayers().stream()
+                    .map(Player::getName)
+                    .filter(n -> n.toLowerCase().startsWith(args[0].toLowerCase()))
+                    .toList();
+            }
+            return List.of();
+        }
+    }
+}
