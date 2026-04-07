@@ -1,6 +1,7 @@
 package ru.allfire.coreprotectionassistant.commands;
 
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -10,8 +11,10 @@ import org.jetbrains.annotations.NotNull;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
 import ru.allfire.coreprotectionassistant.utils.Color;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class ReportCommandExecutor implements CommandExecutor, TabCompleter {
     
@@ -43,19 +46,25 @@ public class ReportCommandExecutor implements CommandExecutor, TabCompleter {
         String targetName = args[0];
         Player target = Bukkit.getPlayer(targetName);
         
-        if (target == null || !target.isOnline()) {
-            player.sendMessage(Color.colorize("&cPlayer is offline"));
-            return true;
+        // Проверяем, что цель существует
+        if (target == null) {
+            OfflinePlayer offlineTarget = Bukkit.getOfflinePlayer(targetName);
+            if (!offlineTarget.hasPlayedBefore()) {
+                player.sendMessage(Color.colorize("&cPlayer not found"));
+                return true;
+            }
         }
         
-        if (target.equals(player)) {
+        // Проверяем, что не жалуется сам на себя
+        if (targetName.equalsIgnoreCase(player.getName())) {
             player.sendMessage(Color.colorize("&cYou cannot report yourself"));
             return true;
         }
         
         String reason = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
         
-        var result = plugin.getReportManager().createReport(player, target, reason);
+        OfflinePlayer offlineTarget = Bukkit.getOfflinePlayer(targetName);
+        var result = plugin.getReportManager().createReport(player, offlineTarget, reason);
         player.sendMessage(Color.colorize(result.message()));
         
         return true;
@@ -66,11 +75,40 @@ public class ReportCommandExecutor implements CommandExecutor, TabCompleter {
                                       @NotNull String label, @NotNull String[] args) {
         
         if (args.length == 1) {
-            return Bukkit.getOnlinePlayers().stream()
-                .map(Player::getName)
-                .filter(n -> !n.equals(sender.getName()))
-                .filter(n -> n.toLowerCase().startsWith(args[0].toLowerCase()))
-                .toList();
+            String partialName = args[0].toLowerCase();
+            List<String> suggestions = new ArrayList<>();
+            
+            // Онлайн игроки
+            for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
+                String name = onlinePlayer.getName();
+                if (!name.equals(sender.getName()) && name.toLowerCase().startsWith(partialName)) {
+                    suggestions.add(name);
+                }
+            }
+            
+            // Оффлайн игроки (до 20)
+            int offlineCount = 0;
+            for (OfflinePlayer offlinePlayer : Bukkit.getOfflinePlayers()) {
+                if (offlineCount >= 20) break;
+                
+                String name = offlinePlayer.getName();
+                if (name != null && !name.equals(sender.getName()) && name.toLowerCase().startsWith(partialName)) {
+                    if (!suggestions.contains(name)) {
+                        suggestions.add(name);
+                        offlineCount++;
+                    }
+                }
+            }
+            
+            suggestions.sort(String::compareToIgnoreCase);
+            return suggestions;
+        }
+        
+        if (args.length == 2) {
+            String partial = args[1].toLowerCase();
+            return List.of("Griefing", "Cheating", "Offensive language", "Spam", "Trolling").stream()
+                .filter(cat -> cat.toLowerCase().startsWith(partial))
+                .collect(Collectors.toList());
         }
         
         return List.of();
