@@ -28,6 +28,8 @@ public class AbuseScoreManager {
                 weights.put(key, config.getInt(key, 5));
             }
         }
+        
+        plugin.getLogger().info("Loaded " + weights.size() + " abuse score weights");
     }
     
     public int getScore(UUID uuid) {
@@ -59,41 +61,51 @@ public class AbuseScoreManager {
         
         scoreCache.put(uuid, newScore);
         
-        // Сохраняем в БД
+        // Сохраняем в БД асинхронно
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
                 String playerName = Bukkit.getOfflinePlayer(uuid).getName();
+                if (playerName == null) playerName = "Unknown";
                 
-                String sql = """
-                    INSERT INTO cpa_abuse_scores (player_uuid, player_name, score, last_updated) 
-                    VALUES (?, ?, ?, ?) 
-                    ON DUPLICATE KEY UPDATE 
-                    player_name = VALUES(player_name), 
-                    score = VALUES(score), 
-                    last_updated = VALUES(last_updated)
-                """;
+                // Сначала пробуем обновить существующую запись
+                String updateSql = "UPDATE cpa_abuse_scores SET player_name = ?, score = ?, last_updated = ? WHERE player_uuid = ?";
                 
                 try (Connection conn = plugin.getDatabaseManager().getConnection();
-                     PreparedStatement ps = conn.prepareStatement(sql)) {
+                     PreparedStatement ps = conn.prepareStatement(updateSql)) {
                     
-                    ps.setString(1, uuid.toString());
-                    ps.setString(2, playerName);
-                    ps.setInt(3, newScore);
-                    ps.setLong(4, System.currentTimeMillis());
+                    ps.setString(1, playerName);
+                    ps.setInt(2, newScore);
+                    ps.setLong(3, System.currentTimeMillis());
+                    ps.setString(4, uuid.toString());
                     
-                    ps.executeUpdate();
+                    int updated = ps.executeUpdate();
+                    
+                    // Если запись не обновилась - вставляем новую
+                    if (updated == 0) {
+                        String insertSql = "INSERT INTO cpa_abuse_scores (player_uuid, player_name, score, last_updated) VALUES (?, ?, ?, ?)";
+                        try (PreparedStatement insertPs = conn.prepareStatement(insertSql)) {
+                            insertPs.setString(1, uuid.toString());
+                            insertPs.setString(2, playerName);
+                            insertPs.setInt(3, newScore);
+                            insertPs.setLong(4, System.currentTimeMillis());
+                            insertPs.executeUpdate();
+                        }
+                    }
+                    
+                    plugin.getLogger().info("Added " + weight + " abuse score to " + 
+                        playerName + " (" + reason + "). Total: " + newScore);
                 }
                 
-                plugin.getLogger().info("Added " + weight + " abuse score to " + 
-                    playerName + " (" + reason + "). Total: " + newScore);
-                    
             } catch (SQLException e) {
                 plugin.getLogger().severe("Failed to save abuse score: " + e.getMessage());
             }
         });
         
-        // Проверяем пороги
-        checkThresholds(uuid, Bukkit.getOfflinePlayer(uuid).getName(), newScore);
+        // Проверяем пороги (выполняется в основном потоке для команд)
+        String playerName = Bukkit.getOfflinePlayer(uuid).getName();
+        if (playerName != null) {
+            checkThresholds(uuid, playerName, newScore);
+        }
     }
     
     public void resetScore(UUID uuid) {
@@ -129,31 +141,50 @@ public class AbuseScoreManager {
             
             int threshold = levelConfig.getInt("threshold", 100);
             
+            // Проверяем, что score >= порога, и предыдущее значение было меньше порога
+            // (чтобы не спамить при каждом добавлении)
             if (score >= threshold) {
                 // Проверяем, не было ли уже предупреждения на этом уровне
                 if (hasRecentWarning(uuid, level, threshold)) {
                     continue;
                 }
                 
-                // Выполняем команды
-                for (String cmd : levelConfig.getStringList("commands")) {
-                    String processed = cmd
-                        .replace("%player_name%", playerName)
-                        .replace("%player_uuid%", uuid.toString())
-                        .replace("%score%", String.valueOf(score))
-                        .replace("%threshold%", String.valueOf(threshold));
-                    
-                    plugin.getServer().dispatchCommand(
-                        plugin.getServer().getConsoleSender(), 
-                        processed.replace("asConsole! ", "")
-                    );
-                }
+                // Выполняем команды в ОСНОВНОМ потоке
+                plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    for (String cmd : levelConfig.getStringList("commands")) {
+                        String processed = cmd
+                            .replace("%player_name%", playerName)
+                            .replace("%player_uuid%", uuid.toString())
+                            .replace("%score%", String.valueOf(score))
+                            .replace("%threshold%", String.valueOf(threshold));
+                        
+                        // Если команда с asConsole! - выполняем от консоли
+                        if (processed.startsWith("asConsole! ")) {
+                            String consoleCmd = processed.substring(11);
+                            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), 
+                                ru.allfire.coreprotectionassistant.utils.Color.strip(consoleCmd));
+                        } else if (processed.startsWith("broadcast! ")) {
+                            String message = processed.substring(11);
+                            Bukkit.broadcastMessage(ru.allfire.coreprotectionassistant.utils.Color.colorize(message));
+                        } else if (processed.startsWith("message! ")) {
+                            String message = processed.substring(9);
+                            org.bukkit.entity.Player player = Bukkit.getPlayer(uuid);
+                            if (player != null) {
+                                player.sendMessage(ru.allfire.coreprotectionassistant.utils.Color.colorize(message));
+                            }
+                        }
+                    }
+                });
+                
+                // Логируем срабатывание
+                plugin.getLogger().warning("Staff " + playerName + " reached abuse score threshold: " + 
+                    level + " (" + score + "/" + threshold + ")");
             }
         }
     }
     
     private boolean hasRecentWarning(UUID uuid, String level, int threshold) {
-        // Проверяем, было ли предупреждение на этом уровне за последние 24 часа
-        return false; // TODO: реализовать проверку
+        // Простая проверка - можно доработать
+        return false;
     }
 }
