@@ -1,0 +1,48 @@
+lang: "ru_ru"
+prefix: "&8[&c&lCPA&8] &7»"
+
+messages:
+  no_permission: "%prefix% &cУ вас нет прав."
+  player_not_found: "%prefix% &f%player% &cне найден."
+  player_offline: "%prefix% &f%player% &cне в сети."
+  reload_success: "%prefix% &aКонфигурация перезагружена за &f%time%ms&a."
+  unknown_command: "%prefix% &cНеизвестная команда. &f/cpa help"
+
+  help_header: "&8&m-----&r &c&lCoreProtectionAssistant &8&m-----"
+  help_stats: "&f/cpa stats <игрок> &7- Статистика игрока"
+  help_staff: "&f/cpa staff <игрок> &7- Статистика персонала"
+  help_top: "&f/cpa top <тип> &7- Топ игроков"
+  help_check: "&f/cpa check <игрок> &7- Быстрая проверка"
+  help_warn: "&f/cpa warn <игрок> [причина] &7- Выдать предупреждение"
+  help_warn_clear: "&f/cpa warn clear <игрок> <кол-во> &7- Снять"
+  help_reload: "&f/cpa reload &7- Перезагрузить конфиг"
+
+  stats_header: "&8&m-----&r &cСтатистика: &f%player% &8&m-----"
+  stats_blocks_broken: "&7Сломано блоков: &f%value%"
+  stats_blocks_placed: "&7Поставлено блоков: &f%value%"
+  stats_playtime: "&7Наиграно: &f%value%"
+  stats_warnings: "&7Предупреждений: &f%value%"
+  stats_violations: "&7Нарушений чата: &f%value%"
+
+  staff_header: "&8&m-----&r &cПерсонал: &f%player% &8&m-----"
+  staff_bans: "&7Банов: &f%value%"
+  staff_mutes: "&7Мутов: &f%value%"
+  staff_kicks: "&7Киков: &f%value%"
+  staff_gives: "&7Выдач предметов: &f%value%"
+  staff_abuse_score: "&7Рейтинг злоупотреблений: &f%value%%"
+
+  report_usage: "%prefix% &cИспользование: &f/report <игрок> <причина>"
+  report_success: "%prefix% &aЖалоба на &f%target% &aотправлена. &7(ID: &f%id%&7)"
+  report_cooldown: "%prefix% &cЖалобу можно отправлять раз в %seconds% сек."
+  report_notify_staff: "%prefix% &e[ЖАЛОБА #%id%] &f%reporter% &7→ &c%target% &8| &7%reason%"
+
+  warn_success: "%prefix% &aПредупреждение выдано &f%player%&a. &7(%reason%)"
+  warn_notify_target: "%prefix% &cВы получили предупреждение от &f%staff%&c. &7(%reason%)"
+  warn_clear_success: "%prefix% &aСнято &f%amount% &aпредупреждений с &f%player%&a."
+
+  time_second: "сек"
+  time_minute: "мин"
+  time_hour: "ч"
+  time_day: "дн"
+  time_never: "Никогда"
+  word_none: "Нет"
