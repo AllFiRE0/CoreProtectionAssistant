@@ -1,0 +1,81 @@
+# CoreProtectionAssistant v1.0.0
+# Author: AllF1RE
+
+database:
+  type: "sqlite"
+  mysql:
+    host: "localhost"
+    port: 3306
+    database: "cpa"
+    username: "root"
+    password: ""
+
+tracked_moder_commands:
+  - "give"
+  - "gamemode"
+  - "ban"
+  - "mute"
+  - "kick"
+  - "invsee"
+  - "tp"
+  - "fly"
+  - "god"
+  - "heal"
+
+tracked_player_commands:
+  - "msg"
+  - "tpa"
+  - "home"
+  - "spawn"
+  - "kit"
+
+super_commands:
+  give:
+    track: true
+    fields: ["target", "item", "amount", "world", "x", "y", "z"]
+  gamemode:
+    track: true
+    fields: ["target", "old_mode", "new_mode", "world", "x", "y", "z"]
+
+prohibited_permissions:
+  - "minecraft.command.op"
+  - "*"
+  - "luckperms.*"
+
+abuse_weights:
+  ban_without_reason: 10
+  self_give_items: 8
+  self_gamemode_change: 3
+  op_self: 20
+  teleport_spam: 5
+
+staff_warnings:
+  moderator:
+    enabled: true
+    threshold: 30
+    commands:
+      - "asConsole! cmi money take %player_name% 100"
+      - "message! &c&l⚠ &7Ваш рейтинг злоупотреблений превысил норму!"
+  admin:
+    enabled: true
+    threshold: 50
+    commands:
+      - "asConsole! cmi money take %player_name% 500"
+      - "broadcast! &c&l[CPA] &f%player_name% &7получил строгое предупреждение!"
+
+warn_clear:
+  enabled: true
+  check_interval_ticks: 12000
+  checks:
+    good_behavior:
+      enabled: true
+      name: "Хорошее поведение"
+      condition: "%cpa_player_warnings_count_{player}% > 0 AND %cpa_player_time_since_last_violation_{player}% > 86400"
+      commands:
+        - "asConsole! cpa warn clear %player_name% 1"
+        - "message! &a&l✔ &7Снято предупреждение за хорошее поведение!"
+
+reports:
+  enabled: true
+  cooldown_seconds: 60
+  cleanup_days: 30
