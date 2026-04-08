@@ -3,6 +3,7 @@ package ru.allfire.coreprotectionassistant.database;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import lombok.Getter;
+import org.bukkit.Bukkit;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
@@ -362,9 +363,6 @@ public class DatabaseManager {
     
     // ========== REPORTS STATISTICS ==========
     
-    /**
-     * Получить общее количество жалоб на игрока
-     */
     public CompletableFuture<Integer> getReportsAgainstPlayer(UUID uuid) {
         return CompletableFuture.supplyAsync(() -> {
             String sql = "SELECT COUNT(*) FROM cpa_reports WHERE target_uuid = ?";
@@ -386,9 +384,6 @@ public class DatabaseManager {
         });
     }
     
-    /**
-     * Получить количество жалоб на игрока по категории
-     */
     public CompletableFuture<Integer> getReportsAgainstPlayerByCategory(UUID uuid, String category) {
         return CompletableFuture.supplyAsync(() -> {
             String sql = "SELECT COUNT(*) FROM cpa_reports WHERE target_uuid = ? AND category = ?";
@@ -411,9 +406,6 @@ public class DatabaseManager {
         });
     }
     
-    /**
-     * Получить количество жалоб, отправленных игроком
-     */
     public CompletableFuture<Integer> getReportsFiledByPlayer(UUID uuid) {
         return CompletableFuture.supplyAsync(() -> {
             String sql = "SELECT COUNT(*) FROM cpa_reports WHERE reporter_uuid = ?";
@@ -433,6 +425,94 @@ public class DatabaseManager {
             }
             return 0;
         });
+    }
+    
+    // ========== CLEANUP ==========
+    
+    public void cleanupOldData() {
+        var config = plugin.getConfigManager().getMainConfig();
+        
+        cleanupTable("cpa_player_commands", config.getInt("cleanup.player_commands", 30));
+        cleanupTable("cpa_staff_actions", config.getInt("cleanup.staff_actions", 90));
+        cleanupTable("cpa_chat_violations", config.getInt("cleanup.chat_violations", 30));
+        cleanupTable("cpa_apologies", config.getInt("cleanup.apologies", 30));
+        cleanupTable("cpa_grief_actions", config.getInt("cleanup.grief_actions", 30));
+    }
+    
+    private void cleanupTable(String tableName, int days) {
+        if (days <= 0) return;
+        
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            long cutoff = System.currentTimeMillis() - (days * 24L * 3600000);
+            String sql = "DELETE FROM " + tableName + " WHERE timestamp < ?";
+            
+            try (Connection conn = getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setLong(1, cutoff);
+                int deleted = ps.executeUpdate();
+                
+                if (deleted > 0) {
+                    plugin.getLogger().info("Cleaned up " + deleted + " old records from " + tableName);
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().severe("Failed to cleanup " + tableName + ": " + e.getMessage());
+            }
+        });
+    }
+    
+    public void resetPlayerStats(UUID uuid, String type) {
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            try (Connection conn = getConnection()) {
+                int totalDeleted = 0;
+                
+                switch (type.toLowerCase()) {
+                    case "commands" -> {
+                        totalDeleted += executeDelete(conn, "DELETE FROM cpa_player_commands WHERE player_uuid = ?", uuid);
+                        totalDeleted += executeDelete(conn, "DELETE FROM cpa_staff_actions WHERE staff_uuid = ?", uuid);
+                        totalDeleted += executeDelete(conn, "DELETE FROM cpa_command_logs WHERE player_uuid = ?", uuid);
+                        totalDeleted += executeDelete(conn, "DELETE FROM cpa_super_commands WHERE player_uuid = ?", uuid);
+                    }
+                    case "ban" -> totalDeleted = executeDelete(conn, "DELETE FROM cpa_staff_actions WHERE staff_uuid = ? AND action = 'BAN'", uuid);
+                    case "mute" -> totalDeleted = executeDelete(conn, "DELETE FROM cpa_staff_actions WHERE staff_uuid = ? AND action = 'MUTE'", uuid);
+                    case "kick" -> totalDeleted = executeDelete(conn, "DELETE FROM cpa_staff_actions WHERE staff_uuid = ? AND action = 'KICK'", uuid);
+                    case "give" -> totalDeleted = executeDelete(conn, "DELETE FROM cpa_staff_actions WHERE staff_uuid = ? AND action = 'GIVE'", uuid);
+                    case "gm" -> totalDeleted = executeDelete(conn, "DELETE FROM cpa_staff_actions WHERE staff_uuid = ? AND action IN ('GAMEMODE', 'GM')", uuid);
+                    case "rating" -> totalDeleted = executeDelete(conn, "DELETE FROM cpa_abuse_scores WHERE player_uuid = ?", uuid);
+                    case "warn" -> totalDeleted = executeDelete(conn, "DELETE FROM cpa_warnings WHERE player_uuid = ?", uuid);
+                    case "free" -> {
+                        totalDeleted += executeDelete(conn, "DELETE FROM cpa_warnings WHERE player_uuid = ?", uuid);
+                        totalDeleted += executeDelete(conn, "DELETE FROM cpa_abuse_scores WHERE player_uuid = ?", uuid);
+                        totalDeleted += executeDelete(conn, "DELETE FROM cpa_reports WHERE target_uuid = ?", uuid);
+                        totalDeleted += executeDelete(conn, "DELETE FROM cpa_reports WHERE reporter_uuid = ?", uuid);
+                    }
+                    case "all" -> {
+                        totalDeleted += executeDelete(conn, "DELETE FROM cpa_player_commands WHERE player_uuid = ?", uuid);
+                        totalDeleted += executeDelete(conn, "DELETE FROM cpa_staff_actions WHERE staff_uuid = ?", uuid);
+                        totalDeleted += executeDelete(conn, "DELETE FROM cpa_warnings WHERE player_uuid = ?", uuid);
+                        totalDeleted += executeDelete(conn, "DELETE FROM cpa_abuse_scores WHERE player_uuid = ?", uuid);
+                        totalDeleted += executeDelete(conn, "DELETE FROM cpa_reports WHERE target_uuid = ? OR reporter_uuid = ?", uuid, uuid);
+                        totalDeleted += executeDelete(conn, "DELETE FROM cpa_chat_violations WHERE player_uuid = ?", uuid);
+                        totalDeleted += executeDelete(conn, "DELETE FROM cpa_apologies WHERE player_uuid = ?", uuid);
+                        totalDeleted += executeDelete(conn, "DELETE FROM cpa_grief_actions WHERE player_uuid = ?", uuid);
+                    }
+                }
+                
+                if (totalDeleted > 0) {
+                    plugin.getLogger().info("Reset " + totalDeleted + " records for " + Bukkit.getOfflinePlayer(uuid).getName() + " (type: " + type + ")");
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().severe("Failed to reset player stats: " + e.getMessage());
+            }
+        });
+    }
+    
+    private int executeDelete(Connection conn, String sql, UUID... uuids) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (int i = 0; i < uuids.length; i++) {
+                ps.setString(i + 1, uuids[i].toString());
+            }
+            return ps.executeUpdate();
+        }
     }
     
     // ========== QUERIES ==========
