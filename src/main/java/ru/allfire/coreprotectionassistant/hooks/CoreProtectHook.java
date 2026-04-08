@@ -2,6 +2,7 @@ package ru.allfire.coreprotectionassistant.hooks;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
@@ -9,7 +10,6 @@ import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class CoreProtectHook {
     
@@ -17,8 +17,7 @@ public class CoreProtectHook {
     private Plugin coreProtect;
     private Object coreProtectAPI;
     private Method performLookupMethod;
-    
-    private final Map<UUID, PlayerCache> playerCache = new ConcurrentHashMap<>();
+    private Method parseResultMethod;
     
     public CoreProtectHook(CoreProtectionAssistant plugin) {
         this.plugin = plugin;
@@ -28,13 +27,14 @@ public class CoreProtectHook {
         coreProtect = Bukkit.getPluginManager().getPlugin("CoreProtect");
         
         if (coreProtect == null) {
-            plugin.getLogger().warning("CoreProtect not found! Block/chest statistics will be unavailable.");
+            plugin.getLogger().warning("CoreProtect not found!");
             return false;
         }
         
         try {
-            // Получаем API через рефлексию
-            Method getAPI = coreProtect.getClass().getMethod("getAPI");
+            // Получаем API через ((CoreProtect) plugin).getAPI()
+            Class<?> coreProtectClass = coreProtect.getClass();
+            Method getAPI = coreProtectClass.getMethod("getAPI");
             coreProtectAPI = getAPI.invoke(coreProtect);
             
             if (coreProtectAPI == null) {
@@ -42,23 +42,37 @@ public class CoreProtectHook {
                 return false;
             }
             
-            // Ищем метод performLookup - сигнатура может отличаться в разных версиях
-            Class<?> apiClass = coreProtectAPI.getClass();
+            // Проверяем версию API
+            Method apiVersionMethod = coreProtectAPI.getClass().getMethod("APIVersion");
+            int apiVersion = (int) apiVersionMethod.invoke(coreProtectAPI);
+            plugin.getLogger().info("CoreProtect API version: " + apiVersion);
             
-            // Пробуем разные сигнатуры метода
-            for (Method method : apiClass.getMethods()) {
+            // Ищем метод performLookup с правильной сигнатурой (8 параметров)
+            for (Method method : coreProtectAPI.getClass().getMethods()) {
                 if (method.getName().equals("performLookup")) {
-                    performLookupMethod = method;
+                    Class<?>[] params = method.getParameterTypes();
+                    if (params.length == 8) {
+                        performLookupMethod = method;
+                        plugin.getLogger().info("Found performLookup with 8 parameters (API v10)");
+                        break;
+                    }
+                }
+            }
+            
+            // Ищем parseResult
+            for (Method method : coreProtectAPI.getClass().getMethods()) {
+                if (method.getName().equals("parseResult")) {
+                    parseResultMethod = method;
                     break;
                 }
             }
             
             if (performLookupMethod == null) {
-                plugin.getLogger().warning("CoreProtect performLookup method not found!");
+                plugin.getLogger().warning("performLookup method not found!");
                 return false;
             }
             
-            plugin.getLogger().info("CoreProtect hook initialized successfully (reflection)");
+            plugin.getLogger().info("CoreProtect hook initialized successfully (API v" + apiVersion + ")");
             return true;
             
         } catch (Exception e) {
@@ -72,27 +86,22 @@ public class CoreProtectHook {
         return coreProtect != null && coreProtectAPI != null && performLookupMethod != null;
     }
     
-    // Безопасный метод для вызова performLookup
-    private List<String[]> safePerformLookup(Integer rows, Integer time, List<String> users, List<Integer> actions) {
-        if (!isEnabled()) {
-            return List.of();
-        }
+    private List<String[]> performLookup(int timeSeconds, List<String> users, List<Integer> actions) {
+        if (!isEnabled()) return List.of();
         
         try {
-            // Пробуем вызвать с разным количеством аргументов
-            Object result;
-            Class<?>[] paramTypes = performLookupMethod.getParameterTypes();
-            
-            if (paramTypes.length >= 9) {
-                result = performLookupMethod.invoke(coreProtectAPI,
-                    rows, time != null ? List.of(time) : null, users, null, null, actions, null, null, null);
-            } else if (paramTypes.length >= 6) {
-                result = performLookupMethod.invoke(coreProtectAPI,
-                    rows, time != null ? List.of(time) : null, users, actions, null, null);
-            } else {
-                result = performLookupMethod.invoke(coreProtectAPI,
-                    rows, time != null ? List.of(time) : null, users, actions);
-            }
+            // Правильный вызов для API v10:
+            // performLookup(time, restrict_users, exclude_users, restrict_blocks, exclude_blocks, action_list, radius, radius_location)
+            Object result = performLookupMethod.invoke(coreProtectAPI,
+                timeSeconds,        // int time
+                users,              // List<String> restrict_users
+                null,               // List<String> exclude_users
+                null,               // List<Object> restrict_blocks
+                null,               // List<Object> exclude_blocks
+                actions,            // List<Integer> action_list
+                0,                  // int radius (0 = без радиуса)
+                null                // Location radius_location
+            );
             
             if (result instanceof List) {
                 @SuppressWarnings("unchecked")
@@ -101,13 +110,13 @@ public class CoreProtectHook {
             }
             
         } catch (Exception e) {
-            // Тишина, просто возвращаем пустой список
+            plugin.getLogger().warning("performLookup failed: " + e.getMessage());
         }
         
         return List.of();
     }
     
-    // ========== БЛОКИ ==========
+    // ========== СТАТИСТИКА ==========
     
     public CompletableFuture<Integer> getBlocksBroken(UUID uuid, long since) {
         return CompletableFuture.supplyAsync(() -> {
@@ -119,7 +128,9 @@ public class CoreProtectHook {
             List<String> users = List.of(playerName);
             List<Integer> actions = List.of(0); // 0 = REMOVED (broken)
             
-            List<String[]> results = safePerformLookup(100000, (int)(since / 1000), users, actions);
+            int timeSeconds = since > 0 ? (int) ((System.currentTimeMillis() - since) / 1000) : 0;
+            List<String[]> results = performLookup(timeSeconds, users, actions);
+            
             return results.size();
         });
     }
@@ -134,12 +145,12 @@ public class CoreProtectHook {
             List<String> users = List.of(playerName);
             List<Integer> actions = List.of(1); // 1 = PLACED
             
-            List<String[]> results = safePerformLookup(100000, (int)(since / 1000), users, actions);
+            int timeSeconds = since > 0 ? (int) ((System.currentTimeMillis() - since) / 1000) : 0;
+            List<String[]> results = performLookup(timeSeconds, users, actions);
+            
             return results.size();
         });
     }
-    
-    // ========== КОНТЕЙНЕРЫ ==========
     
     public CompletableFuture<Integer> getChestsOpened(UUID uuid, long since) {
         return CompletableFuture.supplyAsync(() -> {
@@ -151,23 +162,34 @@ public class CoreProtectHook {
             List<String> users = List.of(playerName);
             List<Integer> actions = List.of(2); // 2 = INTERACTION
             
-            List<String[]> results = safePerformLookup(100000, (int)(since / 1000), users, actions);
+            int timeSeconds = since > 0 ? (int) ((System.currentTimeMillis() - since) / 1000) : 0;
+            List<String[]> results = performLookup(timeSeconds, users, actions);
             
-            return (int) results.stream()
-                .filter(r -> {
-                    if (r.length < 3) return false;
-                    String material = r[2];
-                    return material != null && (
-                        material.contains("CHEST") ||
-                        material.contains("SHULKER") ||
-                        material.contains("BARREL")
-                    );
-                })
-                .count();
+            // Фильтруем только контейнеры (если есть parseResult)
+            if (parseResultMethod != null) {
+                return (int) results.stream()
+                    .filter(r -> {
+                        try {
+                            Object parseResult = parseResultMethod.invoke(coreProtectAPI, (Object) r);
+                            Method getType = parseResult.getClass().getMethod("getType");
+                            Object type = getType.invoke(parseResult);
+                            if (type instanceof Material) {
+                                Material mat = (Material) type;
+                                return mat.name().contains("CHEST") || 
+                                       mat.name().contains("SHULKER") ||
+                                       mat.name().contains("BARREL") ||
+                                       mat.name().contains("FURNACE") ||
+                                       mat.name().contains("HOPPER");
+                            }
+                        } catch (Exception e) {}
+                        return false;
+                    })
+                    .count();
+            }
+            
+            return results.size();
         });
     }
-    
-    // ========== КОМАНДЫ ==========
     
     public CompletableFuture<Integer> getCommandsUsed(UUID uuid, long since) {
         return CompletableFuture.supplyAsync(() -> {
@@ -179,12 +201,12 @@ public class CoreProtectHook {
             List<String> users = List.of(playerName);
             List<Integer> actions = List.of(3); // 3 = COMMAND
             
-            List<String[]> results = safePerformLookup(100000, (int)(since / 1000), users, actions);
+            int timeSeconds = since > 0 ? (int) ((System.currentTimeMillis() - since) / 1000) : 0;
+            List<String[]> results = performLookup(timeSeconds, users, actions);
+            
             return results.size();
         });
     }
-    
-    // ========== СМЕРТИ/УБИЙСТВА ==========
     
     public CompletableFuture<Integer> getDeaths(UUID uuid, long since) {
         return CompletableFuture.supplyAsync(() -> {
@@ -193,10 +215,12 @@ public class CoreProtectHook {
             String playerName = getPlayerName(uuid);
             if (playerName == null) return 0;
             
-            List<String> users = List.of("#" + playerName); // # = death
+            List<String> users = List.of("#" + playerName); // # = death target
             List<Integer> actions = List.of(5); // 5 = KILL
             
-            List<String[]> results = safePerformLookup(100000, (int)(since / 1000), users, actions);
+            int timeSeconds = since > 0 ? (int) ((System.currentTimeMillis() - since) / 1000) : 0;
+            List<String[]> results = performLookup(timeSeconds, users, actions);
+            
             return results.size();
         });
     }
@@ -211,12 +235,12 @@ public class CoreProtectHook {
             List<String> users = List.of(playerName);
             List<Integer> actions = List.of(5); // 5 = KILL
             
-            List<String[]> results = safePerformLookup(100000, (int)(since / 1000), users, actions);
+            int timeSeconds = since > 0 ? (int) ((System.currentTimeMillis() - since) / 1000) : 0;
+            List<String[]> results = performLookup(timeSeconds, users, actions);
+            
             return results.size();
         });
     }
-    
-    // ========== СЕССИИ ==========
     
     public CompletableFuture<Long> getFirstSeen(UUID uuid) {
         return CompletableFuture.supplyAsync(() -> {
@@ -226,15 +250,16 @@ public class CoreProtectHook {
             if (playerName == null) return 0L;
             
             List<String> users = List.of(playerName);
-            List<Integer> actions = List.of(6); // 6 = SESSION (login)
+            List<Integer> actions = List.of(6); // 6 = LOGIN
             
-            List<String[]> results = safePerformLookup(1, 0, users, actions);
+            List<String[]> results = performLookup(0, users, actions);
             
-            if (!results.isEmpty() && results.get(0).length > 0) {
-                try {
-                    return Long.parseLong(results.get(0)[0]) * 1000;
-                } catch (NumberFormatException e) {
-                    return 0L;
+            if (!results.isEmpty()) {
+                String[] first = results.get(0);
+                if (first.length > 0) {
+                    try {
+                        return Long.parseLong(first[0]) * 1000;
+                    } catch (NumberFormatException e) {}
                 }
             }
             return 0L;
@@ -256,20 +281,19 @@ public class CoreProtectHook {
             List<String> users = List.of(playerName);
             List<Integer> actions = List.of(7); // 7 = LOGOUT
             
-            List<String[]> results = safePerformLookup(1, 0, users, actions);
+            List<String[]> results = performLookup(0, users, actions);
             
-            if (!results.isEmpty() && results.get(0).length > 0) {
-                try {
-                    return Long.parseLong(results.get(0)[0]) * 1000;
-                } catch (NumberFormatException e) {
-                    return 0L;
+            if (!results.isEmpty()) {
+                String[] last = results.get(results.size() - 1);
+                if (last.length > 0) {
+                    try {
+                        return Long.parseLong(last[0]) * 1000;
+                    } catch (NumberFormatException e) {}
                 }
             }
             return 0L;
         });
     }
-    
-    // ========== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ==========
     
     private String getPlayerName(UUID uuid) {
         Player player = Bukkit.getPlayer(uuid);
@@ -277,12 +301,10 @@ public class CoreProtectHook {
         return Bukkit.getOfflinePlayer(uuid).getName();
     }
     
-    public void updatePlayerCache(UUID uuid) {
-        // Необязательно, можно оставить пустым
-    }
+    public void updatePlayerCache(UUID uuid) {}
     
     public PlayerCache getCachedPlayer(UUID uuid) {
-        return playerCache.computeIfAbsent(uuid, k -> new PlayerCache());
+        return new PlayerCache();
     }
     
     public static class PlayerCache {
