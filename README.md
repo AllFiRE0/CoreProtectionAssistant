@@ -16,14 +16,35 @@ Advanced staff monitoring and player protection system for Minecraft servers.
 - **Unified Chat Rules** — single configuration for both punishments and apologies
 - Regex-based detection with priorities and recidivism tracking
 - Automatic warning clearance for apologies
+- **Apologies Tracking** — counts apologies and calculates repentance ratio (apologies / violations)
 - **Report System** with anti-abuse protection
 - Automatic violator analysis based on playtime, warnings, and report count
+- **Same IP & Alt Detection** — detects players with same IP and similar nicknames
+- **Prohibited Permissions Check** — alerts when staff members have dangerous permissions
+
+### 🤖 ChatBot (NEW in v1.1.0)
+- Fully configurable chatbot that responds to player messages
+- **Rule-based system** with priorities, permissions, and cooldowns
+- **Condition support** — use PAPI placeholders with comparisons (`>`, `<`, `==`, `contains`, `AND`, `OR`)
+- **Symbol prefix** — respond only to messages starting with `!`, `?`, etc.
+- **Random responses** — choose from a list of possible answers
+- **Delayed responses** — bot can wait before replying
+- **Chance-based triggers** — probability of response in percentage
+- **Context variables** — `%player_name%`, `%player_world%`, `%player_time%`, `%target%`, `%message%`
+- All command prefixes supported: `message!`, `broadcast!`, `asConsole!`, `sound!`, `title!`, `actionbar!`
 
 ### Statistics & Integration
 - CoreProtect integration (via reflection — no hard dependency)
-- PlaceholderAPI support (30+ placeholders)
-- SQLite and MySQL support
-- Optional integrations: CMI, LuckPerms, STCP
+- PlaceholderAPI support (35+ placeholders)
+- **New placeholders** — `%cpa_player_apologies_count%`, `%cpa_player_violations_apologies_ratio%`
+- SQLite (with HikariCP connection pool) and MySQL support
+- Optional integrations: CMI, LuckPerms
+
+### Quality of Life
+- **Full localization** — all messages in `lang.yml` (supports HEX colors `&#RRGGBB`)
+- **Message toggling** — disable any message by setting it to `""` or `"none"`
+- **Offline player tab-complete** — all commands suggest offline players (up to 20)
+- **Centralized reload** — `/cpa reload` reloads all configurations including ChatBot
 
 ---
 
