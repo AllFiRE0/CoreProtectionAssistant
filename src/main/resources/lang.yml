@@ -131,6 +131,8 @@ messages:
   # %seconds% - сколько секунд осталось до следующей жалобы
   report_cooldown: "%prefix% &cЖалобу можно отправлять раз в %seconds% сек."
   report_target_limit: "%prefix% &cНа этого игрока уже много жалоб. Подождите."
+  report_disabled: "%prefix% &cСистема жалоб отключена"
+  report_failed: "%prefix% &cНе удалось сохранить жалобу"
   
   # %id% - ID жалобы
   # %reporter% - кто пожаловался
