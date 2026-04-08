@@ -58,7 +58,7 @@ public class CPAExpansion extends PlaceholderExpansion {
             plugin.getLogger().info("[PAPI] Request for " + offlinePlayer.getName() + ": " + params);
         }
         
-        String result = processPlaceholder(uuid, params);
+        String result = processPlaceholder(uuid, params, offlinePlayer.getName());
         
         if (debug) {
             plugin.getLogger().info("[PAPI] Result: " + (result.isEmpty() ? "<empty>" : result));
@@ -67,17 +67,31 @@ public class CPAExpansion extends PlaceholderExpansion {
         return result;
     }
     
-    private String processPlaceholder(UUID uuid, String params) {
+    private String processPlaceholder(UUID uuid, String params, String currentPlayerName) {
+        // Проверяем, есть ли в параметрах имя игрока (для формата reports_count_<category>_<player>)
+        if (params.startsWith("reports_count_")) {
+            String[] parts = params.split("_");
+            // parts: ["reports", "count", "griefing", "AllF1RE"]
+            if (parts.length >= 4) {
+                String category = parts[2];
+                String playerName = parts[3];
+                OfflinePlayer target = Bukkit.getOfflinePlayer(playerName);
+                if (target != null && target.hasPlayedBefore()) {
+                    return String.valueOf(plugin.getDatabaseManager()
+                        .getReportsAgainstPlayerByCategory(target.getUniqueId(), category).join());
+                }
+            }
+            return "0";
+        }
+        
+        // Проверяем, не указано ли имя игрока в конце (для формата player_reports_<category>_<player>)
         if (params.contains("_")) {
             String[] parts = params.split("_");
-            
-            if (parts.length >= 3) {
-                String possiblePlayerName = parts[parts.length - 1];
-                OfflinePlayer target = Bukkit.getOfflinePlayer(possiblePlayerName);
-                if (target != null && target.hasPlayedBefore()) {
-                    uuid = target.getUniqueId();
-                    params = String.join("_", java.util.Arrays.copyOf(parts, parts.length - 1));
-                }
+            String possiblePlayerName = parts[parts.length - 1];
+            OfflinePlayer target = Bukkit.getOfflinePlayer(possiblePlayerName);
+            if (target != null && target.hasPlayedBefore()) {
+                uuid = target.getUniqueId();
+                params = String.join("_", java.util.Arrays.copyOf(parts, parts.length - 1));
             }
         }
         
@@ -87,6 +101,8 @@ public class CPAExpansion extends PlaceholderExpansion {
             return processStaffPlaceholder(uuid, params.substring(6));
         } else if (params.startsWith("warnings_")) {
             return processWarningsPlaceholder(uuid, params.substring(9));
+        } else if (params.startsWith("reports_")) {
+            return processReportsPlaceholder(uuid, params.substring(8));
         }
         
         return "";
@@ -94,15 +110,6 @@ public class CPAExpansion extends PlaceholderExpansion {
     
     private String processPlayerPlaceholder(UUID uuid, String param) {
         var hook = plugin.getCoreProtectHook();
-        
-        if (param.contains("_")) {
-            String[] parts = param.split("_");
-            OfflinePlayer target = Bukkit.getOfflinePlayer(parts[parts.length - 1]);
-            if (target != null && target.hasPlayedBefore()) {
-                uuid = target.getUniqueId();
-                param = String.join("_", java.util.Arrays.copyOf(parts, parts.length - 1));
-            }
-        }
         
         switch (param) {
             case "blocks_broken":
@@ -134,7 +141,18 @@ public class CPAExpansion extends PlaceholderExpansion {
             case "time_since_last_violation":
                 long lastTime = plugin.getDatabaseManager().getLastViolationTime(uuid).join();
                 return lastTime > 0 ? String.valueOf((System.currentTimeMillis() - lastTime) / 1000) : "0";
+            case "reports_against":
+                return String.valueOf(plugin.getDatabaseManager().getReportsAgainstPlayer(uuid).join());
+            case "reports_filed":
+                return String.valueOf(plugin.getDatabaseManager().getReportsFiledByPlayer(uuid).join());
             default:
+                // player_reports_<category>
+                if (param.startsWith("reports_")) {
+                    String category = param.substring(8);
+                    return String.valueOf(plugin.getDatabaseManager()
+                        .getReportsAgainstPlayerByCategory(uuid, category).join());
+                }
+                // player_cmd_<command>
                 if (param.startsWith("cmd_")) {
                     String command = param.substring(4);
                     return String.valueOf(plugin.getDatabaseManager().getPlayerCommandCount(uuid, command).join());
@@ -171,6 +189,20 @@ public class CPAExpansion extends PlaceholderExpansion {
                 return String.valueOf(plugin.getWarnManager().getActiveWarningsCount(uuid).join());
             default:
                 return "0";
+        }
+    }
+    
+    private String processReportsPlaceholder(UUID uuid, String param) {
+        // reports_against, reports_filed
+        switch (param) {
+            case "against":
+                return String.valueOf(plugin.getDatabaseManager().getReportsAgainstPlayer(uuid).join());
+            case "filed":
+                return String.valueOf(plugin.getDatabaseManager().getReportsFiledByPlayer(uuid).join());
+            default:
+                // reports_<category>
+                return String.valueOf(plugin.getDatabaseManager()
+                    .getReportsAgainstPlayerByCategory(uuid, param).join());
         }
     }
 }
