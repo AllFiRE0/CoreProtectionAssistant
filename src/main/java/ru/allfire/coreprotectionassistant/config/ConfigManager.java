@@ -6,6 +6,8 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
 
 import java.io.File;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 
 @Getter
 public class ConfigManager {
@@ -23,12 +25,18 @@ public class ConfigManager {
     private File reportsFile;
     private File chatBotFile;
     
+    private String language;
+    
     public ConfigManager(CoreProtectionAssistant plugin) {
         this.plugin = plugin;
     }
     
     public void loadAll() {
         loadMainConfig();
+        
+        // Определяем язык из конфига
+        language = mainConfig.getString("language", "ru");
+        
         loadLangConfig();
         loadChatRulesConfig();
         loadReportsConfig();
@@ -44,39 +52,67 @@ public class ConfigManager {
     }
     
     private void loadLangConfig() {
-        langConfigFile = new File(plugin.getDataFolder(), "lang.yml");
+        // Пробуем загрузить из папки языка
+        File langFolder = new File(plugin.getDataFolder(), language);
+        langConfigFile = new File(langFolder, "lang.yml");
+        
         if (!langConfigFile.exists()) {
-            plugin.saveResource("lang.yml", false);
+            // Если нет в папке языка, пробуем из корня
+            langConfigFile = new File(plugin.getDataFolder(), "lang.yml");
+            if (!langConfigFile.exists()) {
+                plugin.saveResource("lang.yml", false);
+            }
         }
+        
         langConfig = YamlConfiguration.loadConfiguration(langConfigFile);
+        plugin.getLogger().info("Loaded language: " + language + " from " + langConfigFile.getPath());
     }
     
     private void loadChatRulesConfig() {
-        chatRulesFile = new File(plugin.getDataFolder(), "chattrules.yml");
+        File langFolder = new File(plugin.getDataFolder(), language);
+        chatRulesFile = new File(langFolder, "chattrules.yml");
+        
         if (!chatRulesFile.exists()) {
-            plugin.saveResource("chattrules.yml", false);
+            chatRulesFile = new File(plugin.getDataFolder(), "chattrules.yml");
+            if (!chatRulesFile.exists()) {
+                plugin.saveResource("chattrules.yml", false);
+            }
         }
+        
         chatRulesConfig = YamlConfiguration.loadConfiguration(chatRulesFile);
     }
     
     private void loadReportsConfig() {
-        reportsFile = new File(plugin.getDataFolder(), "reports.yml");
+        File langFolder = new File(plugin.getDataFolder(), language);
+        reportsFile = new File(langFolder, "reports.yml");
+        
         if (!reportsFile.exists()) {
-            plugin.saveResource("reports.yml", false);
+            reportsFile = new File(plugin.getDataFolder(), "reports.yml");
+            if (!reportsFile.exists()) {
+                plugin.saveResource("reports.yml", false);
+            }
         }
+        
         reportsConfig = YamlConfiguration.loadConfiguration(reportsFile);
     }
     
     private void loadChatBotConfig() {
-        chatBotFile = new File(plugin.getDataFolder(), "chatbot.yml");
+        File langFolder = new File(plugin.getDataFolder(), language);
+        chatBotFile = new File(langFolder, "chatbot.yml");
+        
         if (!chatBotFile.exists()) {
-            plugin.saveResource("chatbot.yml", false);
+            chatBotFile = new File(plugin.getDataFolder(), "chatbot.yml");
+            if (!chatBotFile.exists()) {
+                plugin.saveResource("chatbot.yml", false);
+            }
         }
+        
         chatBotConfig = YamlConfiguration.loadConfiguration(chatBotFile);
     }
     
     public void reloadAll() {
         loadMainConfig();
+        language = mainConfig.getString("language", "ru");
         loadLangConfig();
         loadChatRulesConfig();
         loadReportsConfig();
@@ -88,4 +124,5 @@ public class ConfigManager {
     public FileConfiguration getChatRulesConfig() { return chatRulesConfig; }
     public FileConfiguration getReportsConfig() { return reportsConfig; }
     public FileConfiguration getChatBotConfig() { return chatBotConfig; }
+    public String getLanguage() { return language; }
 }
