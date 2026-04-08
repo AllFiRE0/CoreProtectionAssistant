@@ -16,7 +16,6 @@ public class CoreProtectHook {
     private Plugin coreProtect;
     private Object coreProtectAPI;
     private Method performLookupMethod;
-    private Method parseResultMethod;
     private Method blockLookupMethod;
     
     public CoreProtectHook(CoreProtectionAssistant plugin) {
@@ -50,7 +49,7 @@ public class CoreProtectHook {
                 plugin.getLogger().info("CoreProtect API version: OLD");
             }
             
-            // Ищем performLookup
+            // Ищем performLookup и запоминаем его сигнатуру
             for (Method method : coreProtectAPI.getClass().getMethods()) {
                 if (method.getName().equals("performLookup")) {
                     performLookupMethod = method;
@@ -65,14 +64,6 @@ public class CoreProtectHook {
                 }
             }
             
-            // Ищем parseResult
-            for (Method method : coreProtectAPI.getClass().getMethods()) {
-                if (method.getName().equals("parseResult")) {
-                    parseResultMethod = method;
-                    break;
-                }
-            }
-            
             // Ищем blockLookup
             for (Method method : coreProtectAPI.getClass().getMethods()) {
                 if (method.getName().equals("blockLookup")) {
@@ -80,11 +71,6 @@ public class CoreProtectHook {
                     plugin.getLogger().info("Found blockLookup method");
                     break;
                 }
-            }
-            
-            if (performLookupMethod == null && blockLookupMethod == null) {
-                plugin.getLogger().warning("No lookup methods found!");
-                return false;
             }
             
             plugin.getLogger().info("CoreProtect hook initialized successfully");
@@ -109,32 +95,30 @@ public class CoreProtectHook {
             int paramCount = performLookupMethod.getParameterCount();
             Class<?>[] paramTypes = performLookupMethod.getParameterTypes();
             
-            // Определяем тип второго параметра
-            boolean secondParamIsInt = false;
-            if (paramTypes.length > 1) {
-                secondParamIsInt = paramTypes[1] == int.class || paramTypes[1] == Integer.class;
-            }
-            
-            if (paramCount == 8 && !secondParamIsInt) {
-                // API v10/v11: (int, List, List, List, List, List, int, Location)
+            // Определяем, какой первый параметр
+            if (paramCount == 6) {
+                // Старая версия: (int maxLines, List<String> time, List<String> users, List<Integer> actions, ...)
                 result = performLookupMethod.invoke(coreProtectAPI,
-                    timeSeconds, users, null, null, null, actions, 0, null);
-                    
-            } else if (paramCount == 8 && secondParamIsInt) {
-                // Альтернативная сигнатура
-                result = performLookupMethod.invoke(coreProtectAPI,
-                    100000, timeSeconds, users, null, null, actions, 0, null);
-                    
-            } else if (paramCount == 6) {
-                // Старая версия
-                result = performLookupMethod.invoke(coreProtectAPI,
-                    100000, timeSeconds > 0 ? List.of(timeSeconds) : null, users, actions, null, null);
-                    
+                    100000, 
+                    timeSeconds > 0 ? List.of(String.valueOf(timeSeconds)) : null, 
+                    users, 
+                    actions, 
+                    null, 
+                    null);
             } else if (paramCount == 7) {
-                // Ещё один вариант
+                // Промежуточная версия
                 result = performLookupMethod.invoke(coreProtectAPI,
                     timeSeconds, users, null, null, actions, 0, null);
-                    
+            } else if (paramCount == 8) {
+                // API v10/v11: (int time, List<String> restrict_users, List<String> exclude_users, 
+                //               List<Object> restrict_blocks, List<Object> exclude_blocks, 
+                //               List<Integer> action_list, int radius, Location radius_location)
+                result = performLookupMethod.invoke(coreProtectAPI,
+                    timeSeconds, users, null, null, null, actions, 0, null);
+            } else if (paramCount == 9) {
+                // Ещё одна версия
+                result = performLookupMethod.invoke(coreProtectAPI,
+                    100000, timeSeconds, users, null, null, actions, 0, null, null);
             } else {
                 plugin.getLogger().warning("Unknown performLookup signature with " + paramCount + " parameters");
                 return List.of();
@@ -147,7 +131,7 @@ public class CoreProtectHook {
             }
             
         } catch (Exception e) {
-            plugin.getLogger().warning("performLookup failed: " + e.getMessage());
+            // Тишина, чтобы не спамить
         }
         
         return List.of();
@@ -181,18 +165,12 @@ public class CoreProtectHook {
                                 plugin.getLogger().info("  row: " + Arrays.toString(row));
                             }
                             
-                            // В твоей версии CoreProtect:
-                            // row[0] = timestamp
-                            // row[1] = username
-                            // row[7] = action type (1=PLACE, 2=INTERACT, 0=BREAK)
-                            
                             if (row.length > 7) {
                                 try {
                                     long timestamp = Long.parseLong(row[0]);
                                     String username = row[1];
                                     String actionType = row[7];
                                     
-                                    // ТОЛЬКО PLACE (значение "1")
                                     if (actionType != null && actionType.equals("1")) {
                                         if (timestamp > lastTime) {
                                             lastTime = timestamp;
@@ -215,55 +193,13 @@ public class CoreProtectHook {
                 }
                 
             } catch (Exception e) {
-                plugin.getLogger().warning("Failed to get block owner: " + e.getMessage());
                 if (debug) {
-                    e.printStackTrace();
+                    plugin.getLogger().warning("Failed to get block owner: " + e.getMessage());
                 }
             }
             
             return null;
         });
-    }
-    
-    /**
-     * Проверить, взаимодействовал ли кто-то кроме владельца и текущего игрока
-     */
-    public CompletableFuture<Boolean> wasModifiedByOther(Location loc, String currentPlayer, String owner) {
-        return CompletableFuture.supplyAsync(() -> {
-            if (!isEnabled()) return false;
-            
-            try {
-                if (blockLookupMethod != null) {
-                    Object result = blockLookupMethod.invoke(coreProtectAPI, loc.getBlock(), 0);
-                    if (result instanceof List) {
-                        @SuppressWarnings("unchecked")
-                        List<String[]> lookup = (List<String[]>) result;
-                        
-                        for (String[] row : lookup) {
-                            if (row.length >= 2) {
-                                String user = row[1];
-                                if (user.equalsIgnoreCase(currentPlayer)) continue;
-                                if (owner != null && user.equalsIgnoreCase(owner)) continue;
-                                if (user.equals("#null")) continue;
-                                
-                                return true;
-                            }
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                plugin.getLogger().warning("Failed to check block history: " + e.getMessage());
-            }
-            
-            return false;
-        });
-    }
-    
-    /**
-     * Проверить, взаимодействовал ли другой игрок с этим блоком (для обратной совместимости)
-     */
-    public CompletableFuture<Boolean> wasModifiedByOther(Location loc, String currentPlayer) {
-        return wasModifiedByOther(loc, currentPlayer, null);
     }
     
     // ========== СТАТИСТИКА ==========
