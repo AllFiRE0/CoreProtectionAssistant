@@ -11,7 +11,6 @@ import ru.allfire.coreprotectionassistant.utils.CommandExecutor;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.regex.Pattern;
 
 public class ChatRuleManager {
     
@@ -70,30 +69,15 @@ public class ChatRuleManager {
             String regex = ruleSection.getString("regex", "");
             
             String actionStr = ruleSection.getString("action", "notify").toUpperCase();
-            RuleAction action;
-            try {
-                action = RuleAction.valueOf(actionStr);
-            } catch (IllegalArgumentException e) {
-                action = RuleAction.NOTIFY;
-            }
+            RuleAction action = RuleAction.valueOf(actionStr);
             
             String punishmentStr = ruleSection.getString("punishment", "none").toUpperCase();
-            PunishmentType punishment;
-            try {
-                punishment = PunishmentType.valueOf(punishmentStr);
-            } catch (IllegalArgumentException e) {
-                punishment = PunishmentType.NONE;
-            }
+            PunishmentType punishment = PunishmentType.valueOf(punishmentStr);
             
             long durationTicks = ruleSection.getLong("duration_ticks", 0);
             
             String additionalStr = ruleSection.getString("additional_punishment", "none").toUpperCase();
-            PunishmentType additionalPunishment;
-            try {
-                additionalPunishment = PunishmentType.valueOf(additionalStr);
-            } catch (IllegalArgumentException e) {
-                additionalPunishment = PunishmentType.NONE;
-            }
+            PunishmentType additionalPunishment = PunishmentType.valueOf(additionalStr);
             
             long additionalDurationTicks = ruleSection.getLong("additional_duration_ticks", 0);
             int warningsClear = ruleSection.getInt("warnings_clear", 0);
@@ -171,10 +155,7 @@ public class ChatRuleManager {
     private boolean canPunish(Player player) {
         Long lastTime = lastViolationTime.get(player.getUniqueId());
         if (lastTime == null) return true;
-        
-        long currentTime = System.currentTimeMillis();
-        long ticksPassed = (currentTime - lastTime) / 50;
-        
+        long ticksPassed = (System.currentTimeMillis() - lastTime) / 50;
         return ticksPassed >= globalCooldownTicks;
     }
     
@@ -184,7 +165,6 @@ public class ChatRuleManager {
             long ticksPassed = (System.currentTimeMillis() - lastTime) / 50;
             if (ticksPassed < apologyCooldownTicks) return false;
         }
-        
         int todayApologies = dailyApologies.getOrDefault(player.getUniqueId(), 0);
         return todayApologies < maxApologiesPerDay;
     }
@@ -210,7 +190,7 @@ public class ChatRuleManager {
     }
     
     private void applyApology(Player player, ChatRule rule) {
-        String target = null; // Extract from message if needed
+        String target = null;
         
         executeCommands(player, target, rule);
         
@@ -218,20 +198,20 @@ public class ChatRuleManager {
             plugin.getWarnManager().clearWarnings(player.getUniqueId(), 
                 rule.getWarningsClear(), "Apology: " + rule.getName());
         }
+        
+        // Сохраняем извинение в БД
+        plugin.getDatabaseManager().logApology(player, rule.getName(), rule.getWarningsClear());
     }
     
     private int getRecidivismLevel(Player player) {
         if (!recidivismEnabled) return 1;
-        
         violationCount.put(player.getUniqueId(), 
             violationCount.getOrDefault(player.getUniqueId(), 0) + 1);
-        
         return violationCount.get(player.getUniqueId());
     }
     
     private void recordViolation(Player player) {
         lastViolationTime.put(player.getUniqueId(), System.currentTimeMillis());
-        
         plugin.getServer().getScheduler().runTaskLaterAsynchronously(plugin, () -> {
             Integer count = violationCount.get(player.getUniqueId());
             if (count != null && count > 0) {
