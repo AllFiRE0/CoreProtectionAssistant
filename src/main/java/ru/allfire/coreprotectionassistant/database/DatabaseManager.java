@@ -45,35 +45,19 @@ public class DatabaseManager {
     }
     
     public Connection getConnection() throws SQLException {
-        Connection conn = database.getConnection();
-        
-        // Проверяем валидность соединения
-        if (conn == null || conn.isClosed()) {
-            plugin.getLogger().warning("Database connection lost, attempting to reconnect...");
-            database.disconnect();
-            if (!database.connect()) {
-                throw new SQLException("Failed to reconnect to database");
-            }
-            conn = database.getConnection();
-        }
-        
-        return conn;
+        return database.getConnection();
     }
     
     // ========== COMMAND LOGS ==========
     
     public CompletableFuture<Void> saveCommandLog(CommandLog log) {
         return CompletableFuture.runAsync(() -> {
-            String sql = "INSERT INTO cpa_command_logs " +
-                "(player_uuid, player_name, command, args, full_command, " +
-                "world, x, y, z, timestamp, is_staff) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO cpa_command_logs (player_uuid, player_name, command, args, full_command, world, x, y, z, timestamp, is_staff) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             
             try (Connection conn = getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
                 
-                ps.setString(1, log.getPlayerUuid() != null ? 
-                    log.getPlayerUuid().toString() : null);
+                ps.setString(1, log.getPlayerUuid() != null ? log.getPlayerUuid().toString() : null);
                 ps.setString(2, log.getPlayerName());
                 ps.setString(3, log.getCommand());
                 ps.setString(4, gson.toJson(log.getArgs()));
@@ -96,9 +80,7 @@ public class DatabaseManager {
     
     public CompletableFuture<Void> saveSuperCommand(Player player, String command, String[] args) {
         return CompletableFuture.runAsync(() -> {
-            String sql = "INSERT INTO cpa_super_commands " +
-                "(player_uuid, player_name, command, args, world, x, y, z, timestamp) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO cpa_super_commands (player_uuid, player_name, command, args, world, x, y, z, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
             
             try (Connection conn = getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -124,9 +106,7 @@ public class DatabaseManager {
     
     public CompletableFuture<Void> logPlayerJoin(Player player) {
         return CompletableFuture.runAsync(() -> {
-            String sql = "INSERT INTO cpa_player_sessions " +
-                "(player_uuid, player_name, action, world, x, y, z, timestamp) " +
-                "VALUES (?, ?, 'JOIN', ?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO cpa_player_sessions (player_uuid, player_name, action, world, x, y, z, timestamp) VALUES (?, ?, 'JOIN', ?, ?, ?, ?, ?)";
             
             try (Connection conn = getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -148,9 +128,7 @@ public class DatabaseManager {
     
     public CompletableFuture<Void> logPlayerQuit(Player player) {
         return CompletableFuture.runAsync(() -> {
-            String sql = "INSERT INTO cpa_player_sessions " +
-                "(player_uuid, player_name, action, world, x, y, z, timestamp) " +
-                "VALUES (?, ?, 'QUIT', ?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO cpa_player_sessions (player_uuid, player_name, action, world, x, y, z, timestamp) VALUES (?, ?, 'QUIT', ?, ?, ?, ?, ?)";
             
             try (Connection conn = getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -172,12 +150,9 @@ public class DatabaseManager {
     
     // ========== CHAT VIOLATIONS ==========
     
-    public CompletableFuture<Void> logViolation(Player player, String ruleName, 
-                                                  String punishment, long timestamp) {
+    public CompletableFuture<Void> logViolation(Player player, String ruleName, String punishment, long timestamp) {
         return CompletableFuture.runAsync(() -> {
-            String sql = "INSERT INTO cpa_chat_violations " +
-                "(player_uuid, player_name, rule_name, punishment, timestamp) " +
-                "VALUES (?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO cpa_chat_violations (player_uuid, player_name, rule_name, punishment, timestamp) VALUES (?, ?, ?, ?, ?)";
             
             try (Connection conn = getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -199,8 +174,7 @@ public class DatabaseManager {
     
     public CompletableFuture<Void> logProhibitedPermission(UUID uuid, String permission) {
         return CompletableFuture.runAsync(() -> {
-            String sql = "INSERT INTO cpa_prohibited_perms " +
-                "(player_uuid, permission, timestamp) VALUES (?, ?, ?)";
+            String sql = "INSERT INTO cpa_prohibited_perms (player_uuid, permission, timestamp) VALUES (?, ?, ?)";
             
             try (Connection conn = getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -218,14 +192,9 @@ public class DatabaseManager {
     
     // ========== STAFF ACTIONS ==========
     
-    public CompletableFuture<Void> logStaffAction(UUID staffUuid, String staffName, 
-                                                   String action, String target, 
-                                                   String details, String world, 
-                                                   double x, double y, double z) {
+    public CompletableFuture<Void> logStaffAction(UUID staffUuid, String staffName, String action, String target, String details, String world, double x, double y, double z) {
         return CompletableFuture.runAsync(() -> {
-            String sql = "INSERT INTO cpa_staff_actions " +
-                "(staff_uuid, staff_name, action, target, details, world, x, y, z, timestamp) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO cpa_staff_actions (staff_uuid, staff_name, action, target, details, world, x, y, z, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             
             try (Connection conn = getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -258,10 +227,10 @@ public class DatabaseManager {
                  PreparedStatement ps = conn.prepareStatement(sql)) {
                 
                 ps.setString(1, uuid.toString());
-                ResultSet rs = ps.executeQuery();
-                
-                if (rs.next()) {
-                    return rs.getInt(1);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getInt(1);
+                    }
                 }
             } catch (SQLException e) {
                 plugin.getLogger().severe("Failed to get violation count: " + e.getMessage());
@@ -272,17 +241,16 @@ public class DatabaseManager {
     
     public CompletableFuture<Long> getLastViolationTime(UUID uuid) {
         return CompletableFuture.supplyAsync(() -> {
-            String sql = "SELECT timestamp FROM cpa_chat_violations " +
-                "WHERE player_uuid = ? ORDER BY timestamp DESC LIMIT 1";
+            String sql = "SELECT timestamp FROM cpa_chat_violations WHERE player_uuid = ? ORDER BY timestamp DESC LIMIT 1";
             
             try (Connection conn = getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
                 
                 ps.setString(1, uuid.toString());
-                ResultSet rs = ps.executeQuery();
-                
-                if (rs.next()) {
-                    return rs.getLong(1);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getLong(1);
+                    }
                 }
             } catch (SQLException e) {
                 plugin.getLogger().severe("Failed to get last violation time: " + e.getMessage());
@@ -293,18 +261,17 @@ public class DatabaseManager {
     
     public CompletableFuture<Integer> getCommandCount(UUID uuid, String command) {
         return CompletableFuture.supplyAsync(() -> {
-            String sql = "SELECT COUNT(*) FROM cpa_command_logs " +
-                "WHERE player_uuid = ? AND command = ?";
+            String sql = "SELECT COUNT(*) FROM cpa_command_logs WHERE player_uuid = ? AND command = ?";
             
             try (Connection conn = getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
                 
                 ps.setString(1, uuid.toString());
                 ps.setString(2, command);
-                ResultSet rs = ps.executeQuery();
-                
-                if (rs.next()) {
-                    return rs.getInt(1);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getInt(1);
+                    }
                 }
             } catch (SQLException e) {
                 plugin.getLogger().severe("Failed to get command count: " + e.getMessage());
