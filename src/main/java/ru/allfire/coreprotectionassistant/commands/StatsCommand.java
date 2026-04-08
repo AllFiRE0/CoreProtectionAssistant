@@ -117,6 +117,16 @@ public class StatsCommand implements CommandManager.SubCommand {
             Lang.send(sender, "stats_violations", "value", String.valueOf(count));
         });
         
+        // Извинения
+        plugin.getDatabaseManager().getApologiesCount(targetUuid).thenAccept(count -> {
+            Lang.send(sender, "stats_apologies", "value", String.valueOf(count));
+        });
+        
+        // Соотношение
+        plugin.getDatabaseManager().getViolationsApologiesRatio(targetUuid).thenAccept(ratio -> {
+            Lang.send(sender, "stats_ratio", "value", ratio);
+        });
+        
         return true;
     }
     
