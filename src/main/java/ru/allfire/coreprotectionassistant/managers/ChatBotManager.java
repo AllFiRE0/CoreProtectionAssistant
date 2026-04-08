@@ -27,18 +27,19 @@ public class ChatBotManager implements Listener {
     private boolean enabled;
     private String globalPermission;
     private long globalCooldownTicks;
-    private boolean ignoreSelf;
     private boolean logTriggers;
     private int maxMessageLength;
     private List<String> excludedPermissions;
     private List<String> excludedPlayers;
-    private List<String> excludedGroups;
     
     public ChatBotManager(CoreProtectionAssistant plugin) {
         this.plugin = plugin;
         loadConfig();
         if (enabled) {
             Bukkit.getPluginManager().registerEvents(this, plugin);
+            plugin.getLogger().info("§a[ChatBot] Registered listener!");
+        } else {
+            plugin.getLogger().warning("§c[ChatBot] NOT enabled - listener not registered!");
         }
     }
     
@@ -46,21 +47,29 @@ public class ChatBotManager implements Listener {
         rules.clear();
         
         var config = plugin.getConfigManager().getChatBotConfig();
-        if (config == null) return;
+        if (config == null) {
+            plugin.getLogger().warning("§c[ChatBot] Config is NULL!");
+            return;
+        }
         
         enabled = config.getBoolean("enabled", false);
         globalPermission = config.getString("permission_usage", "");
         globalCooldownTicks = config.getLong("global_cooldown_ticks", 120);
-        ignoreSelf = config.getBoolean("ignore_self", true);
         logTriggers = config.getBoolean("log_triggers", true);
         maxMessageLength = config.getInt("max_message_length", 256);
         
         excludedPermissions = config.getStringList("exclusions.permissions");
         excludedPlayers = config.getStringList("exclusions.players");
-        excludedGroups = config.getStringList("exclusions.groups");
+        
+        plugin.getLogger().info("§a[ChatBot] enabled = " + enabled);
+        plugin.getLogger().info("§a[ChatBot] globalPermission = '" + globalPermission + "'");
+        plugin.getLogger().info("§a[ChatBot] excludedPermissions = " + excludedPermissions);
         
         ConfigurationSection rulesSection = config.getConfigurationSection("rules");
-        if (rulesSection == null) return;
+        if (rulesSection == null) {
+            plugin.getLogger().warning("§c[ChatBot] Rules section is NULL!");
+            return;
+        }
         
         for (String ruleName : rulesSection.getKeys(false)) {
             ConfigurationSection ruleSection = rulesSection.getConfigurationSection(ruleName);
@@ -88,65 +97,80 @@ public class ChatBotManager implements Listener {
             );
             
             rules.add(rule);
+            plugin.getLogger().info("§a[ChatBot] Loaded rule: " + ruleName + " (regex: " + regex + ")");
         }
         
         rules.sort((a, b) -> Integer.compare(b.priority, a.priority));
-        plugin.getLogger().info("Loaded " + rules.size() + " chatbot rules");
+        plugin.getLogger().info("§a[ChatBot] Total " + rules.size() + " rules loaded");
     }
     
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onChat(AsyncChatEvent event) {
-        if (!enabled) return;
-        
         Player player = event.getPlayer();
-        
-        if (isExcluded(player)) return;
-        if (!globalPermission.isEmpty() && !player.hasPermission(globalPermission)) return;
-        
         String message = PlainTextComponentSerializer.plainText().serialize(event.message());
-        if (message.length() > maxMessageLength) return;
+        
+        // DEBUG: Всегда логируем полученное сообщение
+        plugin.getLogger().info("§e[ChatBot DEBUG] Received message from " + player.getName() + ": '" + message + "'");
+        
+        if (!enabled) {
+            plugin.getLogger().warning("§c[ChatBot DEBUG] Bot is DISABLED");
+            return;
+        }
+        
+        // Проверка исключений
+        if (isExcluded(player)) {
+            plugin.getLogger().info("§c[ChatBot DEBUG] Player " + player.getName() + " is EXCLUDED");
+            return;
+        }
+        
+        // Проверка глобального права
+        if (!globalPermission.isEmpty() && !player.hasPermission(globalPermission)) {
+            plugin.getLogger().info("§c[ChatBot DEBUG] Player " + player.getName() + " lacks global permission: " + globalPermission);
+            return;
+        }
+        
+        // Проверка длины
+        if (message.length() > maxMessageLength) {
+            plugin.getLogger().info("§c[ChatBot DEBUG] Message too long: " + message.length() + " > " + maxMessageLength);
+            return;
+        }
+        
+        plugin.getLogger().info("§a[ChatBot DEBUG] Message passed basic checks! Checking " + rules.size() + " rules...");
         
         Long lastGlobal = lastTriggerTime.get(player.getUniqueId());
         long now = System.currentTimeMillis();
         
         if (lastGlobal != null) {
             long ticksPassed = (now - lastGlobal) / 50;
-            if (ticksPassed < globalCooldownTicks) return;
+            if (ticksPassed < globalCooldownTicks) {
+                plugin.getLogger().info("§c[ChatBot DEBUG] Global cooldown active: " + ticksPassed + " < " + globalCooldownTicks);
+                return;
+            }
         }
         
         for (BotRule rule : rules) {
-            if (!rule.permission.isEmpty() && !player.hasPermission(rule.permission)) continue;
-            if (!rule.symbol.isEmpty() && !message.startsWith(rule.symbol)) continue;
+            plugin.getLogger().info("§b[ChatBot DEBUG] Checking rule: " + rule.name);
+            
+            if (!rule.permission.isEmpty() && !player.hasPermission(rule.permission)) {
+                plugin.getLogger().info("§c[ChatBot DEBUG]   -> No permission: " + rule.permission);
+                continue;
+            }
+            
+            if (!rule.symbol.isEmpty() && !message.startsWith(rule.symbol)) {
+                plugin.getLogger().info("§c[ChatBot DEBUG]   -> Symbol mismatch: expected '" + rule.symbol + "', got '" + message + "'");
+                continue;
+            }
             
             String checkMessage = rule.symbol.isEmpty() ? message : message.substring(rule.symbol.length());
-            if (!rule.pattern.matcher(checkMessage).find()) continue;
             
-            // Проверка условий
-            if (!rule.conditions.isEmpty()) {
-                String processedCondition = rule.conditions.replace("{player}", player.getName());
-                if (!ConditionParser.evaluate(plugin, player, processedCondition)) continue;
+            if (!rule.pattern.matcher(checkMessage).find()) {
+                plugin.getLogger().info("§c[ChatBot DEBUG]   -> Regex mismatch: " + rule.pattern);
+                continue;
             }
             
-            Map<String, Long> playerCooldowns = ruleCooldowns.computeIfAbsent(
-                player.getUniqueId(), k -> new ConcurrentHashMap<>()
-            );
+            plugin.getLogger().info("§a[ChatBot DEBUG]   -> RULE MATCHED! Executing...");
             
-            Long lastRule = playerCooldowns.get(rule.name);
-            if (lastRule != null && rule.cooldownTicks > 0) {
-                long ticksPassed = (now - lastRule) / 50;
-                if (ticksPassed < rule.cooldownTicks) continue;
-            }
-            
-            // Проверка шанса
-            if (rule.chance < 100 && random.nextInt(100) >= rule.chance) continue;
-            
-            // Срабатывание!
-            if (logTriggers) {
-                plugin.getLogger().info("[ChatBot] Player " + player.getName() + 
-                    " triggered rule '" + rule.name + "': " + message);
-            }
-            
-            // Выбираем команды (основные или случайные)
+            // Выполняем команды
             final List<String> cmdsToExecute;
             if (!rule.answerCmdsRandom.isEmpty() && random.nextBoolean()) {
                 cmdsToExecute = new ArrayList<>(rule.answerCmdsRandom);
@@ -154,7 +178,6 @@ public class ChatBotManager implements Listener {
                 cmdsToExecute = new ArrayList<>(rule.answerCmds);
             }
             
-            // Выполняем с задержкой или сразу
             if (rule.delayTicks > 0) {
                 Bukkit.getScheduler().runTaskLater(plugin, () -> {
                     executeCommands(player, message, cmdsToExecute);
@@ -164,6 +187,10 @@ public class ChatBotManager implements Listener {
             }
             
             lastTriggerTime.put(player.getUniqueId(), now);
+            
+            Map<String, Long> playerCooldowns = ruleCooldowns.computeIfAbsent(
+                player.getUniqueId(), k -> new ConcurrentHashMap<>()
+            );
             playerCooldowns.put(rule.name, now);
             
             break;
@@ -176,37 +203,17 @@ public class ChatBotManager implements Listener {
                 .replace("%player_name%", player.getName())
                 .replace("%player_uuid%", player.getUniqueId().toString())
                 .replace("%player_world%", player.getWorld().getName())
-                .replace("%player_health%", String.valueOf(player.getHealth()))
-                .replace("%player_time%", String.valueOf(player.getWorld().getTime()))
                 .replace("%message%", message);
             
-            // Извлекаем target если есть упоминание
-            String target = extractTarget(message);
-            if (target != null) {
-                processed = processed.replace("%target%", target);
-            }
-            
-            CommandExecutor.execute(plugin, player, target, processed);
+            CommandExecutor.execute(plugin, player, null, processed);
         }
-    }
-    
-    private String extractTarget(String message) {
-        String[] words = message.split("\\s+");
-        for (String word : words) {
-            Player target = Bukkit.getPlayer(word);
-            if (target != null) {
-                return word;
-            }
-        }
-        return null;
     }
     
     private boolean isExcluded(Player player) {
         for (String perm : excludedPermissions) {
             if (player.hasPermission(perm)) return true;
         }
-        if (excludedPlayers.contains(player.getName())) return true;
-        return false;
+        return excludedPlayers.contains(player.getName());
     }
     
     public void reload() {
