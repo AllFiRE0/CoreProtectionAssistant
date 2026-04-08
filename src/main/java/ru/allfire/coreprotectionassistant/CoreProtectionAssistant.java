@@ -29,6 +29,7 @@ public final class CoreProtectionAssistant extends JavaPlugin {
     private ReportManager reportManager;
     private ChatRuleManager chatRuleManager;
     private AbuseScoreManager abuseScoreManager;
+    private ChatBotManager chatBotManager;
     
     private long loadTime;
     
@@ -111,6 +112,13 @@ public final class CoreProtectionAssistant extends JavaPlugin {
         reportManager = new ReportManager(this);
         chatRuleManager = new ChatRuleManager(this);
         abuseScoreManager = new AbuseScoreManager(this);
+        
+        // Инициализация ChatBotManager
+        chatBotManager = new ChatBotManager(this);
+        if (chatBotManager.isEnabled()) {
+            getLogger().info("§8[§cCoreProtectionAssistant§8] §aChatBot enabled with §f" + 
+                chatBotManager.getRulesCount() + " §arules");
+        }
     }
     
     private void registerListeners() {
@@ -142,6 +150,17 @@ public final class CoreProtectionAssistant extends JavaPlugin {
             () -> reportManager.cleanupOldReports(),
             20 * 60 * 30, 20 * 60 * 60 * 6
         );
+    }
+    
+    public void reload() {
+        configManager.reloadAll();
+        Lang.setLang(configManager.getLangConfig());
+        chatRuleManager.loadRules();
+        reportManager.reload();
+        if (chatBotManager != null) {
+            chatBotManager.reload();
+        }
+        getLogger().info("§8[§cCoreProtectionAssistant§8] §aConfiguration reloaded");
     }
     
     public static CoreProtectionAssistant getInstance() {
@@ -178,6 +197,10 @@ public final class CoreProtectionAssistant extends JavaPlugin {
     
     public AbuseScoreManager getAbuseScoreManager() {
         return abuseScoreManager;
+    }
+    
+    public ChatBotManager getChatBotManager() {
+        return chatBotManager;
     }
     
     public long getLoadTime() {
