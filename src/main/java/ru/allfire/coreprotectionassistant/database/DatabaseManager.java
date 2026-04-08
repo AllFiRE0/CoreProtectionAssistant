@@ -44,11 +44,20 @@ public class DatabaseManager {
         }
     }
     
-    /**
-     * Получить соединение с базой данных
-     */
     public Connection getConnection() throws SQLException {
-        return database.getConnection();
+        Connection conn = database.getConnection();
+        
+        // Проверяем валидность соединения
+        if (conn == null || conn.isClosed()) {
+            plugin.getLogger().warning("Database connection lost, attempting to reconnect...");
+            database.disconnect();
+            if (!database.connect()) {
+                throw new SQLException("Failed to reconnect to database");
+            }
+            conn = database.getConnection();
+        }
+        
+        return conn;
     }
     
     // ========== COMMAND LOGS ==========
