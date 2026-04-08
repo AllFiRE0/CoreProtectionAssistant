@@ -2,6 +2,7 @@
 # CoreProtectionAssistant - ChatBot Configuration
 # ============================================
 enabled: true
+debug: false
 permission_usage: ""
 global_cooldown_ticks: 20
 ignore_self: true
