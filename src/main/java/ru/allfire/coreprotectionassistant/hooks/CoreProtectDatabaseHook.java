@@ -43,8 +43,9 @@ public class CoreProtectDatabaseHook {
         
         try {
             Class.forName("org.sqlite.JDBC");
-            connection = DriverManager.getConnection("jdbc:sqlite:" + coreProtectDbFile.getAbsolutePath());
-            connection.setReadOnly(true); // Только чтение!
+            // ИСПРАВЛЕНО: read-only через параметр URL
+            String url = "jdbc:sqlite:" + coreProtectDbFile.getAbsolutePath() + "?mode=ro";
+            connection = DriverManager.getConnection(url);
             
             // Загружаем кэш
             loadCache();
@@ -116,7 +117,7 @@ public class CoreProtectDatabaseHook {
             if (worldId == -1) return history;
             
             String sql = """
-                SELECT b.time, b.user, b.type, b.data, b.action, u.user as username
+                SELECT b.time, b.user, b.type, b.data, u.user as username
                 FROM co_block b
                 JOIN co_user u ON b.user = u.id
                 WHERE b.wid = ? AND b.x = ? AND b.y = ? AND b.z = ?
@@ -251,6 +252,17 @@ public class CoreProtectDatabaseHook {
                 plugin.getLogger().severe("Failed to get blocks placed: " + e.getMessage());
             }
             
+            // Взаимодействия с контейнерами
+            sql = "SELECT COUNT(*) as count FROM co_block WHERE user = ? AND type = 2";
+            try (PreparedStatement ps = connection.prepareStatement(sql)) {
+                ps.setInt(1, userId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) stats.containersOpened = rs.getInt("count");
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().severe("Failed to get containers opened: " + e.getMessage());
+            }
+            
             return stats;
         });
     }
@@ -274,5 +286,6 @@ public class CoreProtectDatabaseHook {
     public static class PlayerStats {
         public int blocksBroken = 0;
         public int blocksPlaced = 0;
+        public int containersOpened = 0;
     }
 }
