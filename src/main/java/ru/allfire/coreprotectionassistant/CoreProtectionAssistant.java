@@ -141,7 +141,7 @@ public final class CoreProtectionAssistant extends JavaPlugin {
             interval, interval
         );
         
-        // Проверка просроченных варнов (каждые 60 секунд = 1200 тиков)
+        // Проверка просроченных варнов (каждые 60 секунд)
         getServer().getScheduler().runTaskTimerAsynchronously(this,
             () -> warnManager.checkExpiredWarnings(),
             1200L, 1200L
@@ -151,6 +151,12 @@ public final class CoreProtectionAssistant extends JavaPlugin {
         getServer().getScheduler().runTaskTimerAsynchronously(this,
             () -> reportManager.cleanupOldReports(),
             20 * 60 * 30, 20 * 60 * 60 * 6
+        );
+        
+        // Автоочистка старых данных (раз в сутки)
+        getServer().getScheduler().runTaskTimerAsynchronously(this,
+            () -> databaseManager.cleanupOldData(),
+            20 * 60 * 60 * 24, 20 * 60 * 60 * 24
         );
     }
     
