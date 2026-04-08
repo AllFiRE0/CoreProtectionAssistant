@@ -1,6 +1,7 @@
 package ru.allfire.coreprotectionassistant.managers;
 
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
 
 import java.sql.*;
@@ -96,6 +97,25 @@ public class AbuseScoreManager {
         if (playerName != null) {
             checkThresholds(uuid, playerName, newScore);
         }
+    }
+    
+    public void resetScore(UUID uuid) {
+        scoreCache.put(uuid, 0);
+        
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            String sql = "UPDATE cpa_abuse_scores SET score = 0, last_updated = ? WHERE player_uuid = ?";
+            
+            try (Connection conn = plugin.getDatabaseManager().getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sql)) {
+                
+                ps.setLong(1, System.currentTimeMillis());
+                ps.setString(2, uuid.toString());
+                
+                ps.executeUpdate();
+            } catch (SQLException e) {
+                plugin.getLogger().severe("Failed to reset abuse score: " + e.getMessage());
+            }
+        });
     }
     
     private void checkThresholds(UUID uuid, String playerName, int score) {
