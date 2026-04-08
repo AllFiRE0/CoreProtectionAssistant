@@ -58,7 +58,7 @@ public class CPAExpansion extends PlaceholderExpansion {
             plugin.getLogger().info("[PAPI] Request for " + offlinePlayer.getName() + ": " + params);
         }
         
-        String result = processPlaceholder(uuid, params, offlinePlayer.getName());
+        String result = processPlaceholder(uuid, params);
         
         if (debug) {
             plugin.getLogger().info("[PAPI] Result: " + (result.isEmpty() ? "<empty>" : result));
@@ -67,8 +67,8 @@ public class CPAExpansion extends PlaceholderExpansion {
         return result;
     }
     
-    private String processPlaceholder(UUID uuid, String params, String currentPlayerName) {
-        // Проверяем, есть ли в параметрах имя игрока (для формата reports_count_<category>_<player>)
+    private String processPlaceholder(UUID uuid, String params) {
+        // Формат: reports_count_<category>_<player>
         if (params.startsWith("reports_count_")) {
             String[] parts = params.split("_");
             // parts: ["reports", "count", "griefing", "AllF1RE"]
@@ -84,7 +84,14 @@ public class CPAExpansion extends PlaceholderExpansion {
             return "0";
         }
         
-        // Проверяем, не указано ли имя игрока в конце (для формата player_reports_<category>_<player>)
+        // Формат: reports_<category> (для текущего игрока)
+        if (params.startsWith("reports_") && !params.startsWith("reports_count_")) {
+            String category = params.substring(8); // после "reports_"
+            return String.valueOf(plugin.getDatabaseManager()
+                .getReportsAgainstPlayerByCategory(uuid, category).join());
+        }
+        
+        // Проверяем, не указано ли имя игрока в конце (player_warnings_count_AllF1RE)
         if (params.contains("_")) {
             String[] parts = params.split("_");
             String possiblePlayerName = parts[parts.length - 1];
@@ -101,8 +108,6 @@ public class CPAExpansion extends PlaceholderExpansion {
             return processStaffPlaceholder(uuid, params.substring(6));
         } else if (params.startsWith("warnings_")) {
             return processWarningsPlaceholder(uuid, params.substring(9));
-        } else if (params.startsWith("reports_")) {
-            return processReportsPlaceholder(uuid, params.substring(8));
         }
         
         return "";
@@ -189,20 +194,6 @@ public class CPAExpansion extends PlaceholderExpansion {
                 return String.valueOf(plugin.getWarnManager().getActiveWarningsCount(uuid).join());
             default:
                 return "0";
-        }
-    }
-    
-    private String processReportsPlaceholder(UUID uuid, String param) {
-        // reports_against, reports_filed
-        switch (param) {
-            case "against":
-                return String.valueOf(plugin.getDatabaseManager().getReportsAgainstPlayer(uuid).join());
-            case "filed":
-                return String.valueOf(plugin.getDatabaseManager().getReportsFiledByPlayer(uuid).join());
-            default:
-                // reports_<category>
-                return String.valueOf(plugin.getDatabaseManager()
-                    .getReportsAgainstPlayerByCategory(uuid, param).join());
         }
     }
 }
