@@ -37,34 +37,43 @@ public class CommandListener implements Listener {
         
         Player player = event.getPlayer();
         String message = event.getMessage();
+        
+        // Извлекаем полную команду (включая префикс плагина)
+        String fullCommand = extractFullCommand(message);
+        
+        // Извлекаем только название команды (без префикса)
         String command = extractCommand(message);
+        
         String[] args = extractArgs(message);
         
         boolean isStaff = player.hasPermission("cpa.staff") || player.hasPermission("cpa.moder");
         
         if (debug) {
             plugin.getLogger().info("[CommandListener] Player: " + player.getName() + 
-                ", Command: " + command + ", isStaff: " + isStaff);
+                ", Full command: " + fullCommand + ", Command: " + command + ", isStaff: " + isStaff);
         }
         
-        // Логируем ВСЕ команды в cpa_player_commands
-        boolean shouldLogInPlayerCommands = false;
+        // Проверяем, нужно ли логировать (по полной команде или только по названию)
+        boolean shouldLog = false;
         
         if (isStaff) {
-            shouldLogInPlayerCommands = trackedModerCommands.contains(command.toLowerCase());
+            shouldLog = trackedModerCommands.contains(fullCommand.toLowerCase()) || 
+                       trackedModerCommands.contains(command.toLowerCase());
         } else {
-            shouldLogInPlayerCommands = trackedPlayerCommands.contains(command.toLowerCase());
+            shouldLog = trackedPlayerCommands.contains(fullCommand.toLowerCase()) || 
+                       trackedPlayerCommands.contains(command.toLowerCase());
         }
         
-        if (shouldLogInPlayerCommands) {
+        if (shouldLog) {
             if (debug) {
-                plugin.getLogger().info("[CommandListener] Logging to cpa_player_commands: " + command);
+                plugin.getLogger().info("[CommandListener] Logging: " + fullCommand);
             }
             
+            // Логируем в cpa_player_commands
             plugin.getDatabaseManager().logPlayerCommand(
                 player.getUniqueId(),
                 player.getName(),
-                command,
+                fullCommand,  // Сохраняем полную команду (cmi give)
                 args,
                 message,
                 player.getWorld().getName(),
@@ -73,31 +82,27 @@ public class CommandListener implements Listener {
                 player.getLocation().getZ(),
                 isStaff
             );
-        }
-        
-        // Дополнительно логируем действия персонала в cpa_staff_actions
-        if (isStaff && trackedModerCommands.contains(command.toLowerCase())) {
-            if (debug) {
-                plugin.getLogger().info("[CommandListener] Logging to cpa_staff_actions: " + command);
+            
+            // Для персонала логируем в cpa_staff_actions
+            if (isStaff) {
+                plugin.getDatabaseManager().logStaffAction(
+                    player.getUniqueId(),
+                    player.getName(),
+                    fullCommand.toUpperCase(),
+                    args.length > 0 ? args[0] : null,
+                    args.length > 1 ? String.join(" ", Arrays.copyOfRange(args, 1, args.length)) : null,
+                    player.getWorld().getName(),
+                    player.getLocation().getX(),
+                    player.getLocation().getY(),
+                    player.getLocation().getZ()
+                );
+                
+                plugin.getStaffManager().processStaffCommand(player, fullCommand, args);
             }
-            
-            plugin.getDatabaseManager().logStaffAction(
-                player.getUniqueId(),
-                player.getName(),
-                command.toUpperCase(),
-                args.length > 0 ? args[0] : null,
-                args.length > 1 ? String.join(" ", Arrays.copyOfRange(args, 1, args.length)) : null,
-                player.getWorld().getName(),
-                player.getLocation().getX(),
-                player.getLocation().getY(),
-                player.getLocation().getZ()
-            );
-            
-            plugin.getStaffManager().processStaffCommand(player, command, args);
         }
         
         // Проверяем супер-команды
-        checkSuperCommand(player, command, args);
+        checkSuperCommand(player, fullCommand, args);
     }
     
     @EventHandler(priority = EventPriority.MONITOR)
@@ -105,17 +110,16 @@ public class CommandListener implements Listener {
         if (event.isCancelled()) return;
         
         String message = event.getCommand();
+        String fullCommand = extractFullCommand(message);
         String command = extractCommand(message);
         
-        if (trackedModerCommands.contains(command.toLowerCase())) {
-            if (debug) {
-                plugin.getLogger().info("[CommandListener] Console command logged: " + command);
-            }
+        if (trackedModerCommands.contains(fullCommand.toLowerCase()) || 
+            trackedModerCommands.contains(command.toLowerCase())) {
             
             plugin.getDatabaseManager().logPlayerCommand(
                 null,
                 "CONSOLE",
-                command,
+                fullCommand,
                 extractArgs(message),
                 message,
                 "N/A",
@@ -125,12 +129,34 @@ public class CommandListener implements Listener {
         }
     }
     
-    private String extractCommand(String message) {
+    /**
+     * Извлекает полную команду с префиксом плагина (например, "cmi give")
+     */
+    private String extractFullCommand(String message) {
+        // Убираем начальный слэш
         String cmd = message.substring(1).split(" ")[0];
-        if (cmd.contains(":")) {
-            cmd = cmd.split(":")[1];
+        // Если есть второй аргумент (подкоманда), добавляем его
+        String[] parts = message.substring(1).split(" ");
+        if (parts.length > 1) {
+            return cmd + " " + parts[1];
         }
         return cmd;
+    }
+    
+    /**
+     * Извлекает только название команды (например, "give" из "cmi give")
+     */
+    private String extractCommand(String message) {
+        String full = extractFullCommand(message);
+        // Если есть пробел, берём вторую часть
+        if (full.contains(" ")) {
+            return full.split(" ")[1];
+        }
+        // Если есть двоеточие (cmi:give)
+        if (full.contains(":")) {
+            return full.split(":")[1];
+        }
+        return full;
     }
     
     private String[] extractArgs(String message) {
@@ -148,7 +174,7 @@ public class CommandListener implements Listener {
         if (superCommands == null) return;
         
         for (String cmdName : superCommands.getKeys(false)) {
-            if (command.equalsIgnoreCase(cmdName)) {
+            if (command.equalsIgnoreCase(cmdName) || command.endsWith(":" + cmdName)) {
                 boolean track = superCommands.getBoolean(cmdName + ".track", false);
                 if (track) {
                     plugin.getDatabaseManager().saveSuperCommand(player, command, args);
