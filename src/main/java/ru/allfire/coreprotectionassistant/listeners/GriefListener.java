@@ -7,7 +7,6 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
-import ru.allfire.coreprotectionassistant.hooks.CoreProtectDatabaseHook;
 import ru.allfire.coreprotectionassistant.utils.CommandExecutor;
 
 import java.util.List;
@@ -28,9 +27,6 @@ public class GriefListener implements Listener {
     public void onBlockBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
         Block block = event.getBlock();
-        
-        CoreProtectDatabaseHook hook = plugin.getCoreProtectDbHook();
-        if (hook == null || !hook.isEnabled()) return;
         
         // Проверяем, включена ли детекция
         boolean enabled = plugin.getConfigManager().getMainConfig()
@@ -53,6 +49,10 @@ public class GriefListener implements Listener {
         if (lastTime != null && (now - lastTime) < minTimeMs) {
             return;
         }
+        
+        // Используем CoreProtectHook (API) вместо прямого чтения БД
+        var hook = plugin.getCoreProtectHook();
+        if (hook == null || !hook.isEnabled()) return;
         
         // Проверяем, взаимодействовал ли кто-то ещё с этим блоком
         hook.wasModifiedByOther(block.getLocation(), player.getName()).thenAccept(wasModified -> {
