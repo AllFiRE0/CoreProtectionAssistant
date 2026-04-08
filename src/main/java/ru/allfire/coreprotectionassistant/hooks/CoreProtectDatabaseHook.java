@@ -1,299 +1,209 @@
-package ru.allfire.coreprotectionassistant.hooks;
+package ru.allfire.coreprotectionassistant;
 
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
+import org.bstats.bukkit.Metrics;
+import org.bukkit.plugin.java.JavaPlugin;
+import ru.allfire.coreprotectionassistant.commands.CommandManager;
+import ru.allfire.coreprotectionassistant.config.ConfigManager;
+import ru.allfire.coreprotectionassistant.config.Lang;
+import ru.allfire.coreprotectionassistant.database.DatabaseManager;
+import ru.allfire.coreprotectionassistant.hooks.CoreProtectHook;
+import ru.allfire.coreprotectionassistant.hooks.PapiHook;
+import ru.allfire.coreprotectionassistant.listeners.*;
+import ru.allfire.coreprotectionassistant.managers.*;
 
-import java.io.File;
-import java.sql.*;
-import java.util.*;
-import java.util.concurrent.CompletableFuture;
+import java.util.logging.Level;
 
-public class CoreProtectDatabaseHook {
+public final class CoreProtectionAssistant extends JavaPlugin {
     
-    private final CoreProtectionAssistant plugin;
-    private Connection connection;
+    private static CoreProtectionAssistant instance;
     
-    private final Map<Integer, String> userCache = new HashMap<>();
-    private final Map<Integer, String> worldCache = new HashMap<>();
-    private final Map<Integer, String> materialCache = new HashMap<>();
+    private ConfigManager configManager;
+    private DatabaseManager databaseManager;
+    private CoreProtectHook coreProtectHook;
+    private PapiHook papiHook;
     
-    private String userTable = "co_user";
-    private String worldTable = "co_world";
-    private String materialTable = "co_material";
-    private String blockTable = "co_block";
+    private StaffManager staffManager;
+    private WarnManager warnManager;
+    private ReportManager reportManager;
+    private ChatRuleManager chatRuleManager;
+    private AbuseScoreManager abuseScoreManager;
+    private ChatBotManager chatBotManager;
     
-    public CoreProtectDatabaseHook(CoreProtectionAssistant plugin) {
-        this.plugin = plugin;
-    }
+    private long loadTime;
     
-    public boolean init() {
-        // Пробуем SQLite
-        File coreProtectFolder = new File("plugins/CoreProtect");
-        File dbFile = new File(coreProtectFolder, "database.db");
+    @Override
+    public void onEnable() {
+        instance = this;
+        loadTime = System.currentTimeMillis();
         
-        if (dbFile.exists()) {
-            plugin.getLogger().info("Found CoreProtect SQLite database: " + dbFile.getAbsolutePath());
-            return initSQLite(dbFile);
+        getLogger().info("§8[§cCoreProtectionAssistant§8] §7Starting...");
+        
+        if (!loadConfigurations()) {
+            getServer().getPluginManager().disablePlugin(this);
+            return;
         }
         
-        // Пробуем MySQL
-        plugin.getLogger().info("CoreProtect SQLite not found, trying MySQL...");
-        return initMySQL();
+        if (!initializeDatabase()) {
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        
+        initializeHooks();
+        initializeManagers();
+        registerListeners();
+        registerCommands();
+        registerPlaceholders();
+        startScheduledTasks();
+        
+        new Metrics(this, 22800);
+        
+        loadTime = System.currentTimeMillis() - loadTime;
+        getLogger().info("§8[§cCoreProtectionAssistant§8] §aEnabled in §f" + loadTime + "ms");
+        getLogger().info("§8[§cCoreProtectionAssistant§8] §7Author: §fAllF1RE");
     }
     
-    private boolean initSQLite(File dbFile) {
+    @Override
+    public void onDisable() {
+        if (databaseManager != null) {
+            databaseManager.close();
+        }
+        
+        if (papiHook != null) {
+            papiHook.unregister();
+        }
+        
+        getLogger().info("§8[§cCoreProtectionAssistant§8] §cDisabled");
+    }
+    
+    private boolean loadConfigurations() {
         try {
-            Class.forName("org.sqlite.JDBC");
-            String url = "jdbc:sqlite:" + dbFile.getAbsolutePath() + "?mode=ro";
-            connection = DriverManager.getConnection(url);
-            
-            // Проверяем, какие таблицы реально существуют
-            checkTables();
-            
-            // Загружаем кэш
-            loadCache();
-            
-            plugin.getLogger().info("CoreProtect SQLite hook initialized. Users: " + userCache.size() + 
-                ", Worlds: " + worldCache.size() + ", Materials: " + materialCache.size());
-            
+            configManager = new ConfigManager(this);
+            configManager.loadAll();
+            Lang.setLang(configManager.getLangConfig());
             return true;
-            
         } catch (Exception e) {
-            plugin.getLogger().severe("Failed to connect to CoreProtect SQLite: " + e.getMessage());
-            e.printStackTrace();
+            getLogger().log(Level.SEVERE, "Failed to load configurations", e);
             return false;
         }
     }
     
-    private boolean initMySQL() {
-        File configFile = new File("plugins/CoreProtect/config.yml");
-        if (!configFile.exists()) {
-            plugin.getLogger().warning("CoreProtect config.yml not found!");
-            return false;
-        }
-        
+    private boolean initializeDatabase() {
         try {
-            org.bukkit.configuration.file.YamlConfiguration config = 
-                org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(configFile);
-            
-            // Проверяем, включён ли MySQL
-            boolean useMySQL = config.getBoolean("use-mysql", false);
-            if (!useMySQL) {
-                plugin.getLogger().warning("CoreProtect is not using MySQL!");
-                return false;
-            }
-            
-            String host = config.getString("host", "localhost");
-            int port = config.getInt("port", 3306);
-            String database = config.getString("database", "coreprotect");
-            String username = config.getString("username", "root");
-            String password = config.getString("password", "");
-            
-            String url = "jdbc:mysql://" + host + ":" + port + "/" + database + 
-                "?useSSL=false&allowPublicKeyRetrieval=true";
-            
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            connection = DriverManager.getConnection(url, username, password);
-            connection.setReadOnly(true);
-            
-            plugin.getLogger().info("Connected to CoreProtect MySQL database: " + database);
-            
-            // Проверяем таблицы
-            checkTables();
-            
-            // Загружаем кэш
-            loadCache();
-            
-            plugin.getLogger().info("CoreProtect MySQL hook initialized. Users: " + userCache.size() + 
-                ", Worlds: " + worldCache.size() + ", Materials: " + materialCache.size());
-            
-            return true;
-            
+            databaseManager = new DatabaseManager(this);
+            return databaseManager.init();
         } catch (Exception e) {
-            plugin.getLogger().severe("Failed to connect to CoreProtect MySQL: " + e.getMessage());
-            e.printStackTrace();
+            getLogger().log(Level.SEVERE, "Failed to initialize database", e);
             return false;
         }
     }
     
-    private void checkTables() {
-        try (Statement stmt = connection.createStatement()) {
-            // Проверяем существование таблиц простым SELECT
-            try {
-                stmt.executeQuery("SELECT 1 FROM co_user LIMIT 1");
-                userTable = "co_user";
-            } catch (SQLException e) {
-                try {
-                    stmt.executeQuery("SELECT 1 FROM user LIMIT 1");
-                    userTable = "user";
-                } catch (SQLException e2) {
-                    plugin.getLogger().warning("Cannot find user table!");
-                }
-            }
-            
-            try {
-                stmt.executeQuery("SELECT 1 FROM co_world LIMIT 1");
-                worldTable = "co_world";
-            } catch (SQLException e) {
-                try {
-                    stmt.executeQuery("SELECT 1 FROM world LIMIT 1");
-                    worldTable = "world";
-                } catch (SQLException e2) {
-                    plugin.getLogger().warning("Cannot find world table!");
-                }
-            }
-            
-            try {
-                stmt.executeQuery("SELECT 1 FROM co_material LIMIT 1");
-                materialTable = "co_material";
-            } catch (SQLException e) {
-                try {
-                    stmt.executeQuery("SELECT 1 FROM material LIMIT 1");
-                    materialTable = "material";
-                } catch (SQLException e2) {
-                    try {
-                        stmt.executeQuery("SELECT 1 FROM co_material_map LIMIT 1");
-                        materialTable = "co_material_map";
-                    } catch (SQLException e3) {
-                        plugin.getLogger().warning("Cannot find material table!");
-                    }
-                }
-            }
-            
-            try {
-                stmt.executeQuery("SELECT 1 FROM co_block LIMIT 1");
-                blockTable = "co_block";
-            } catch (SQLException e) {
-                try {
-                    stmt.executeQuery("SELECT 1 FROM block LIMIT 1");
-                    blockTable = "block";
-                } catch (SQLException e2) {
-                    plugin.getLogger().warning("Cannot find block table!");
-                }
-            }
-            
-            plugin.getLogger().info("Using tables: " + userTable + ", " + worldTable + 
-                ", " + materialTable + ", " + blockTable);
-                
-        } catch (SQLException e) {
-            plugin.getLogger().warning("Failed to check tables: " + e.getMessage());
+    private void initializeHooks() {
+        coreProtectHook = new CoreProtectHook(this);
+        coreProtectHook.init();
+        
+        papiHook = new PapiHook(this);
+    }
+    
+    private void initializeManagers() {
+        staffManager = new StaffManager(this);
+        warnManager = new WarnManager(this);
+        reportManager = new ReportManager(this);
+        chatRuleManager = new ChatRuleManager(this);
+        abuseScoreManager = new AbuseScoreManager(this);
+        chatBotManager = new ChatBotManager(this);
+        
+        if (chatBotManager.isEnabled()) {
+            getLogger().info("§8[§cCoreProtectionAssistant§8] §aChatBot enabled with §f" + 
+                chatBotManager.getRulesCount() + " §arules");
         }
     }
     
-    private void loadCache() {
-        // Загружаем пользователей
-        if (userTable != null) {
-            try (Statement stmt = connection.createStatement();
-                 ResultSet rs = stmt.executeQuery("SELECT id, user FROM " + userTable)) {
-                while (rs.next()) {
-                    userCache.put(rs.getInt("id"), rs.getString("user"));
-                }
-                plugin.getLogger().info("Loaded " + userCache.size() + " users from " + userTable);
-            } catch (SQLException e) {
-                plugin.getLogger().warning("Failed to load users: " + e.getMessage());
-            }
+    private void registerListeners() {
+        getServer().getPluginManager().registerEvents(new ChatListener(this), this);
+        getServer().getPluginManager().registerEvents(new CommandListener(this), this);
+        getServer().getPluginManager().registerEvents(new PlayerListener(this), this);
+        getServer().getPluginManager().registerEvents(new GriefListener(this), this);
+    }
+    
+    private void registerCommands() {
+        CommandManager commandManager = new CommandManager(this);
+        commandManager.registerAll();
+    }
+    
+    private void registerPlaceholders() {
+        if (getServer().getPluginManager().isPluginEnabled("PlaceholderAPI")) {
+            papiHook.register();
+        }
+    }
+    
+    private void startScheduledTasks() {
+        int interval = configManager.getMainConfig().getInt("warn_clear.check_interval_ticks", 12000);
+        
+        getServer().getScheduler().runTaskTimerAsynchronously(this,
+            () -> warnManager.checkWarnClearConditions(),
+            interval, interval
+        );
+        
+        getServer().getScheduler().runTaskTimerAsynchronously(this,
+            () -> reportManager.cleanupOldReports(),
+            20 * 60 * 30, 20 * 60 * 60 * 6
+        );
+    }
+    
+    public void reload() {
+        configManager.reloadAll();
+        Lang.setLang(configManager.getLangConfig());
+        chatRuleManager.loadRules();
+        reportManager.reload();
+        
+        if (chatBotManager != null) {
+            chatBotManager.reload();
         }
         
-        // Загружаем миры
-        if (worldTable != null) {
-            try (Statement stmt = connection.createStatement();
-                 ResultSet rs = stmt.executeQuery("SELECT id, world FROM " + worldTable)) {
-                while (rs.next()) {
-                    worldCache.put(rs.getInt("id"), rs.getString("world"));
-                }
-                plugin.getLogger().info("Loaded " + worldCache.size() + " worlds from " + worldTable);
-            } catch (SQLException e) {
-                plugin.getLogger().warning("Failed to load worlds: " + e.getMessage());
-            }
-        }
-        
-        // Загружаем материалы
-        if (materialTable != null) {
-            try (Statement stmt = connection.createStatement();
-                 ResultSet rs = stmt.executeQuery("SELECT id, material FROM " + materialTable)) {
-                while (rs.next()) {
-                    materialCache.put(rs.getInt("id"), rs.getString("material"));
-                }
-                plugin.getLogger().info("Loaded " + materialCache.size() + " materials from " + materialTable);
-            } catch (SQLException e) {
-                plugin.getLogger().warning("Failed to load materials: " + e.getMessage());
-            }
-        }
+        getLogger().info("§8[§cCoreProtectionAssistant§8] §aConfiguration reloaded");
     }
     
-    public CompletableFuture<List<BlockAction>> getBlockHistory(Location loc) {
-        return CompletableFuture.supplyAsync(() -> {
-            List<BlockAction> history = new ArrayList<>();
-            
-            if (connection == null || blockTable == null) return history;
-            
-            int worldId = -1;
-            for (Map.Entry<Integer, String> entry : worldCache.entrySet()) {
-                if (entry.getValue().equals(loc.getWorld().getName())) {
-                    worldId = entry.getKey();
-                    break;
-                }
-            }
-            
-            if (worldId == -1) return history;
-            
-            String sql = "SELECT b.time, b.user, b.type, b.data, u.user as username " +
-                        "FROM " + blockTable + " b " +
-                        "JOIN " + userTable + " u ON b.user = u.id " +
-                        "WHERE b.wid = ? AND b.x = ? AND b.y = ? AND b.z = ? " +
-                        "ORDER BY b.time ASC";
-            
-            try (PreparedStatement ps = connection.prepareStatement(sql)) {
-                ps.setInt(1, worldId);
-                ps.setInt(2, loc.getBlockX());
-                ps.setInt(3, loc.getBlockY());
-                ps.setInt(4, loc.getBlockZ());
-                
-                try (ResultSet rs = ps.executeQuery()) {
-                    while (rs.next()) {
-                        long time = rs.getLong("time") * 1000;
-                        String username = rs.getString("username");
-                        int type = rs.getInt("type");
-                        int materialId = rs.getInt("data");
-                        String material = materialCache.getOrDefault(materialId, "UNKNOWN");
-                        
-                        String action = type == 0 ? "BREAK" : (type == 1 ? "PLACE" : "INTERACT");
-                        history.add(new BlockAction(time, username, action, material));
-                    }
-                }
-            } catch (SQLException e) {
-                plugin.getLogger().severe("Failed to get block history: " + e.getMessage());
-            }
-            
-            return history;
-        });
+    public static CoreProtectionAssistant getInstance() {
+        return instance;
     }
     
-    public CompletableFuture<Boolean> wasModifiedByOther(Location loc, String currentPlayer) {
-        return getBlockHistory(loc).thenApply(history -> {
-            for (BlockAction action : history) {
-                if (!action.username().equalsIgnoreCase(currentPlayer)) {
-                    return true;
-                }
-            }
-            return false;
-        });
+    public ConfigManager getConfigManager() {
+        return configManager;
     }
     
-    public void close() {
-        try {
-            if (connection != null && !connection.isClosed()) {
-                connection.close();
-            }
-        } catch (SQLException e) {
-            plugin.getLogger().severe("Failed to close CoreProtect database: " + e.getMessage());
-        }
+    public DatabaseManager getDatabaseManager() {
+        return databaseManager;
     }
     
-    public boolean isEnabled() {
-        return connection != null && userTable != null && !userCache.isEmpty();
+    public CoreProtectHook getCoreProtectHook() {
+        return coreProtectHook;
     }
     
-    public record BlockAction(long timestamp, String username, String action, String material) {}
+    public StaffManager getStaffManager() {
+        return staffManager;
+    }
+    
+    public WarnManager getWarnManager() {
+        return warnManager;
+    }
+    
+    public ReportManager getReportManager() {
+        return reportManager;
+    }
+    
+    public ChatRuleManager getChatRuleManager() {
+        return chatRuleManager;
+    }
+    
+    public AbuseScoreManager getAbuseScoreManager() {
+        return abuseScoreManager;
+    }
+    
+    public ChatBotManager getChatBotManager() {
+        return chatBotManager;
+    }
+    
+    public long getLoadTime() {
+        return loadTime;
+    }
 }
