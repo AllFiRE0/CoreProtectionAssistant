@@ -1,0 +1,191 @@
+# Чат-бот отвечает на сообщения игроков по заданным правилам
+# Поддерживает все префиксы команд: asConsole!, asPlayer!, message!, broadcast!, sound!, title!, actionbar!
+
+# ============================================
+# ГЛОБАЛЬНЫЕ НАСТРОЙКИ
+# ============================================
+# Полностью включить/выключить бота
+enabled: false
+# Право на использование бота (если пусто "" - бот отвечает всем)
+permission_usage: "cpa.chatbot.use"
+# Глобальный кулдаун между ЛЮБЫМИ ответами бота одному игроку (в тиках)
+# 120 тиков = 6 секунд
+# Защита от спама
+global_cooldown_ticks: 120
+# Игнорировать ли боту самого себя (чтобы не было рекурсии)
+ignore_self: true
+# Логировать ли срабатывания бота в консоль
+log_triggers: true
+# Максимальная длина сообщения для обработки (большие сообщения игнорируются)
+max_message_length: 256
+
+# ============================================
+# ИСКЛЮЧЕНИЯ
+# ============================================
+# Кого бот игнорирует полностью
+exclusions:
+  # Права, при наличии которых бот игнорирует игрока
+  permissions:
+    - "cpa.chatbot.bypass"
+  # Конкретные игроки по нику
+  players: []
+  # Группы LuckPerms
+  groups: []
+
+# ============================================
+# ПРАВИЛА БОТА
+# ============================================
+rules:
+  # ------------------------------------------
+  # Приветствие
+  # ------------------------------------------
+  greeting:
+    # Включено ли правило
+    enabled: true
+    # Приоритет (чем выше, тем раньше проверяется)
+    priority: 100
+    # Право для этого правила (если "" - не проверяется)
+    permission: "cpa.chatbot.greeting"
+    # Условия для срабатывания (если "" - не проверяется)
+    # Поддерживаются: ==, !=, >, <, >=, <=, contains, AND, OR, ( )
+    # Доступные плейсхолдеры: %player_name%, %player_world%, %player_health%, %cpa_player_warnings_count%, и любые PAPI
+    # Пример: "%player_health% > 10 AND %cpa_player_warnings_count% < 3"
+    conditions: ""
+    # Символ-префикс в начале сообщения (если "" - реагирует на любое сообщение)
+    # Например: "!" - бот отвечает только на "!Привет", но не на "Привет"
+    symbol: "!"
+    # Кулдаун для этого правила (в тиках), 0 = без кулдауна
+    cooldown_ticks: 40
+    # Регулярное выражение для поиска в сообщении
+    # (?i) - игнорировать регистр
+    # ^ - начало строки
+    regex: "(?i)^(привет|здравствуй|хай|hello|hi|privet|zdarova|ку|прив|здарова)"
+    # Команды, выполняемые при срабатывании
+    # Доступные переменные: %player_name%, %player_uuid%, %message%, %target% (если упомянут)
+    answer_cmds:
+      - "message! &a&lБОТ &7» &fПривет, %player_name%! Добро пожаловать на сервер!"
+      - "sound! ENTITY_PLAYER_LEVELUP 1.0 1.5"
+      - "asConsole! give %player_name% minecraft:bread 1"
+
+  # ------------------------------------------
+  # Прощание
+  # ------------------------------------------
+  farewell:
+    enabled: true
+    priority: 90
+    permission: ""
+    conditions: ""
+    symbol: "!"
+    cooldown_ticks: 40
+    regex: "(?i)^(пока|до свидания|бай|bye|goodbye|ухожу|всем пока)"
+    answer_cmds:
+      - "message! &a&lБОТ &7» &fДо встречи, %player_name%! Заходи ещё!"
+      - "sound! ENTITY_VILLAGER_YES 1.0 1.0"
+
+  # ------------------------------------------
+  # Помощь
+  # ------------------------------------------
+  help:
+    enabled: true
+    priority: 80
+    permission: ""
+    conditions: ""
+    symbol: "!"
+    cooldown_ticks: 100
+    regex: "(?i)^(помощь|help|команды|хелп|помогите|что делать)"
+    answer_cmds:
+      - "message! &a&lБОТ &7» &fДоступные команды: &e/cpa help&f, &e/report&f, &e/kit&f, &e/spawn"
+      - "message! &a&lБОТ &7» &fЕсли нужна помощь модератора - используй &e/report <ник> <причина>"
+
+  # ------------------------------------------
+  # Правила сервера
+  # ------------------------------------------
+  rules:
+    enabled: true
+    priority: 70
+    permission: ""
+    conditions: ""
+    symbol: "!"
+    cooldown_ticks: 200
+    regex: "(?i)^(правила|rules|правило|законы)"
+    answer_cmds:
+      - "message! &a&lБОТ &7» &fПравила сервера:"
+      - "message! &7  1. Не материться"
+      - "message! &7  2. Не гриферить"
+      - "message! &7  3. Уважать других игроков"
+      - "message! &7  4. Не использовать читы"
+
+  # ------------------------------------------
+  # Онлайн сервера
+  # ------------------------------------------
+  online:
+    enabled: true
+    priority: 60
+    permission: ""
+    conditions: ""
+    symbol: "!"
+    cooldown_ticks: 100
+    regex: "(?i)^(онлайн|online|сколько игроков|кто на сервере|игроки)"
+    answer_cmds:
+      - "asConsole! cpa online %player_name%"  # Можно создать свою команду
+      - "message! &a&lБОТ &7» &fСейчас на сервере играет &e%online_players% &fчеловек"
+
+  # ------------------------------------------
+  # Спасибо
+  # ------------------------------------------
+  thanks:
+    enabled: true
+    priority: 50
+    permission: ""
+    conditions: ""
+    symbol: ""  # Без символа - реагирует на любое сообщение
+    cooldown_ticks: 60
+    regex: "(?i)(спасибо|благодарю|спс|thanks|thx|thank you|сяб)"
+    answer_cmds:
+      - "message! &a&lБОТ &7» &fПожалуйста, %player_name%! Рад помочь!"
+      - "sound! ENTITY_EXPERIENCE_ORB_PICKUP 1.0 1.0"
+
+  # ------------------------------------------
+  # Вопрос "Как дела?"
+  # ------------------------------------------
+  howareyou:
+    enabled: true
+    priority: 40
+    permission: ""
+    conditions: ""
+    symbol: ""
+    cooldown_ticks: 80
+    regex: "(?i)(как дела|как ты|how are you|чё как|как жизнь)"
+    answer_cmds:
+      - "message! &a&lБОТ &7» &fУ меня всё отлично, %player_name%! Я всегда на связи!"
+      - "message! &a&lБОТ &7» &fА как твои дела?"
+      - "sound! BLOCK_NOTE_BLOCK_PLING 1.0 1.2"
+
+  # ------------------------------------------
+  # Упоминание бота
+  # ------------------------------------------
+  mention:
+    enabled: true
+    priority: 100
+    permission: ""
+    conditions: ""
+    symbol: ""
+    cooldown_ticks: 50
+    regex: "(?i)(бот|bot|cpa|чатбот|chatbot|помощник)"
+    answer_cmds:
+      - "message! &a&lБОТ &7» &fДа, %player_name%? Я слушаю! Используй &e!помощь &fдля списка команд"
+
+  # ------------------------------------------
+  # Топ игроков (пример с условием)
+  # ------------------------------------------
+  top_request:
+    enabled: true
+    priority: 30
+    permission: "cpa.chatbot.top"
+    conditions: "%cpa_player_warnings_count% < 3"  # Только для игроков с <3 варнов
+    symbol: "!"
+    cooldown_ticks: 300
+    regex: "(?i)^(топ|top|лидеры|лучшие)"
+    answer_cmds:
+      - "asConsole! cpa top warnings 1"
+      - "message! &a&lБОТ &7» &fТоп игроков отправлен в чат!"
