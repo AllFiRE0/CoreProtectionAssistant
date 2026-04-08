@@ -77,6 +77,81 @@ public class DatabaseManager {
         });
     }
     
+    // ========== PLAYER COMMANDS ==========
+    
+    public CompletableFuture<Void> logPlayerCommand(UUID playerUuid, String playerName, 
+                                                      String command, String[] args, 
+                                                      String fullCommand, String world,
+                                                      double x, double y, double z, 
+                                                      boolean isStaff) {
+        return CompletableFuture.runAsync(() -> {
+            String sql = "INSERT INTO cpa_player_commands (player_uuid, player_name, command, args, full_command, world, x, y, z, timestamp, is_staff) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            
+            try (Connection conn = getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sql)) {
+                
+                ps.setString(1, playerUuid != null ? playerUuid.toString() : null);
+                ps.setString(2, playerName);
+                ps.setString(3, command);
+                ps.setString(4, gson.toJson(args));
+                ps.setString(5, fullCommand);
+                ps.setString(6, world);
+                ps.setDouble(7, x);
+                ps.setDouble(8, y);
+                ps.setDouble(9, z);
+                ps.setLong(10, System.currentTimeMillis());
+                ps.setBoolean(11, isStaff);
+                
+                ps.executeUpdate();
+            } catch (SQLException e) {
+                plugin.getLogger().severe("Failed to log player command: " + e.getMessage());
+            }
+        });
+    }
+    
+    public CompletableFuture<Integer> getPlayerCommandCount(UUID uuid, String command) {
+        return CompletableFuture.supplyAsync(() -> {
+            String sql = "SELECT COUNT(*) FROM cpa_player_commands WHERE player_uuid = ? AND command = ?";
+            
+            try (Connection conn = getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sql)) {
+                
+                ps.setString(1, uuid.toString());
+                ps.setString(2, command);
+                
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getInt(1);
+                    }
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().severe("Failed to get command count: " + e.getMessage());
+            }
+            return 0;
+        });
+    }
+    
+    public CompletableFuture<Integer> getTotalCommandsUsed(UUID uuid) {
+        return CompletableFuture.supplyAsync(() -> {
+            String sql = "SELECT COUNT(*) FROM cpa_player_commands WHERE player_uuid = ?";
+            
+            try (Connection conn = getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sql)) {
+                
+                ps.setString(1, uuid.toString());
+                
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getInt(1);
+                    }
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().severe("Failed to get total commands: " + e.getMessage());
+            }
+            return 0;
+        });
+    }
+    
     // ========== SUPER COMMANDS ==========
     
     public CompletableFuture<Void> saveSuperCommand(Player player, String command, String[] args) {
@@ -328,23 +403,6 @@ public class DatabaseManager {
     }
     
     public CompletableFuture<Integer> getCommandCount(UUID uuid, String command) {
-        return CompletableFuture.supplyAsync(() -> {
-            String sql = "SELECT COUNT(*) FROM cpa_command_logs WHERE player_uuid = ? AND command = ?";
-            
-            try (Connection conn = getConnection();
-                 PreparedStatement ps = conn.prepareStatement(sql)) {
-                
-                ps.setString(1, uuid.toString());
-                ps.setString(2, command);
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        return rs.getInt(1);
-                    }
-                }
-            } catch (SQLException e) {
-                plugin.getLogger().severe("Failed to get command count: " + e.getMessage());
-            }
-            return 0;
-        });
+        return getPlayerCommandCount(uuid, command);
     }
 }
