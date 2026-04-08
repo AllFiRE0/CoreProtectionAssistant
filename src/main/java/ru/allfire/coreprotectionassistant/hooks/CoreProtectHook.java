@@ -148,7 +148,6 @@ public class CoreProtectHook {
                             plugin.getLogger().info("blockLookup returned " + lookup.size() + " entries");
                         }
                         
-                        // Ищем ПОСЛЕДНЕЕ действие PLACE (сортировка по времени)
                         String lastOwner = null;
                         long lastTime = 0;
                         
@@ -157,28 +156,23 @@ public class CoreProtectHook {
                                 plugin.getLogger().info("  row: " + Arrays.toString(row));
                             }
                             
-                            // В CoreProtect API строка содержит:
-                            // row[0] = timestamp (в секундах)
+                            // В твоей версии CoreProtect:
+                            // row[0] = timestamp
                             // row[1] = username
-                            // row[2] = action (0=break, 1=place, 2=interact)
+                            // row[7] = action type (1=PLACE, 2=INTERACT, 0=BREAK)
                             
-                            if (row.length >= 3) {
+                            if (row.length > 7) {
                                 try {
                                     long timestamp = Long.parseLong(row[0]);
                                     String username = row[1];
+                                    String actionType = row[7];
                                     
-                                    // Ищем действие PLACE
-                                    boolean isPlace = false;
-                                    for (String val : row) {
-                                        if (val != null && val.equals("1")) {
-                                            isPlace = true;
-                                            break;
+                                    // ТОЛЬКО PLACE (значение "1")
+                                    if (actionType != null && actionType.equals("1")) {
+                                        if (timestamp > lastTime) {
+                                            lastTime = timestamp;
+                                            lastOwner = username;
                                         }
-                                    }
-                                    
-                                    if (isPlace && timestamp > lastTime) {
-                                        lastTime = timestamp;
-                                        lastOwner = username;
                                     }
                                 } catch (NumberFormatException e) {
                                     // Пропускаем
