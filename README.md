@@ -202,6 +202,15 @@ Supports both **SQLite** (default) and **MySQL**.
 
 ---
 
+### Acknowledgements
+~ PaperMC — Server software
+~ CoreProtect — Block logging
+~ PlaceholderAPI — Placeholder support
+~ CMI — Economy & playtime
+~ LuckPerms — Permission management
+
+---
+
 ## 🔨 Building from Source
 
 ### Requirements
@@ -209,6 +218,28 @@ Supports both **SQLite** (default) and **MySQL**.
 - Maven 3.9+
 
 ### Build Commands
+
+---
+
+❓ FAQ
+Q: Why "zero-trust"?
+A: The plugin assumes staff members might abuse their powers. It tracks everything and calculates an abuse score to alert owners.
+
+Q: Does it work without CoreProtect?
+A: Yes, but block/chest/command statistics and grief detection will be unavailable.
+
+Q: Can I customize the abuse score weights?
+A: Yes, in config.yml under abuse_weights.
+
+Q: How do I add new chat rules?
+A: Edit chattrules.yml and use /cpa reload.
+
+Q: What is "recidivism"?
+A: Repeated violations within a time window result in harsher punishments.
+
+Q: How do I disable a specific message?
+A: Set it to "" or "none" in lang.yml.
+
 ```bash
 # Clone repository
 git clone https://github.com/AllFiRE0/CoreProtectionAssistant.git
@@ -218,3 +249,6 @@ cd CoreProtectionAssistant
 mvn clean package
 
 # Output: target/CoreProtectionAssistant-1.1.0.jar
+
+
+
