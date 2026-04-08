@@ -242,14 +242,6 @@ Supports both **SQLite** (default) and **MySQL**.
   A: Set it to "" or "none" in lang.yml.
 
 ```bash
-# Clone repository
-git clone https://github.com/AllFiRE0/CoreProtectionAssistant.git
-cd CoreProtectionAssistant
-
-# Build with Maven
-mvn clean package
-
-# Output: target/CoreProtectionAssistant-1.1.0.jar
 
 
 
