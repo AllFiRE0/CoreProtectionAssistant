@@ -273,18 +273,24 @@ public class WarnCommand implements CommandManager.SubCommand {
             
             if (firstArg.equals("clear")) {
                 if (args.length == 2) {
-                    List<String> players = new ArrayList<>(
-                        Bukkit.getOnlinePlayers().stream()
-                            .map(Player::getName)
-                            .filter(n -> n.toLowerCase().startsWith(args[1].toLowerCase()))
-                            .toList()
-                    );
+                    List<String> players = new ArrayList<>();
+                    // Онлайн игроки
+                    for (Player p : Bukkit.getOnlinePlayers()) {
+                        if (p.getName().toLowerCase().startsWith(args[1].toLowerCase())) {
+                            players.add(p.getName());
+                        }
+                    }
+                    // Оффлайн игроки (до 20)
+                    int count = 0;
                     for (OfflinePlayer off : Bukkit.getOfflinePlayers()) {
+                        if (count >= 20) break;
                         String name = off.getName();
                         if (name != null && name.toLowerCase().startsWith(args[1].toLowerCase())) {
-                            if (!players.contains(name)) players.add(name);
+                            if (!players.contains(name)) {
+                                players.add(name);
+                                count++;
+                            }
                         }
-                        if (players.size() >= 20) break;
                     }
                     return players;
                 }
@@ -296,10 +302,26 @@ public class WarnCommand implements CommandManager.SubCommand {
                 }
             } else if (firstArg.equals("list")) {
                 if (args.length == 2) {
-                    return Bukkit.getOnlinePlayers().stream()
-                        .map(Player::getName)
-                        .filter(n -> n.toLowerCase().startsWith(args[1].toLowerCase()))
-                        .toList();
+                    List<String> players = new ArrayList<>();
+                    // Онлайн игроки
+                    for (Player p : Bukkit.getOnlinePlayers()) {
+                        if (p.getName().toLowerCase().startsWith(args[1].toLowerCase())) {
+                            players.add(p.getName());
+                        }
+                    }
+                    // Оффлайн игроки (до 20)
+                    int count = 0;
+                    for (OfflinePlayer off : Bukkit.getOfflinePlayers()) {
+                        if (count >= 20) break;
+                        String name = off.getName();
+                        if (name != null && name.toLowerCase().startsWith(args[1].toLowerCase())) {
+                            if (!players.contains(name)) {
+                                players.add(name);
+                                count++;
+                            }
+                        }
+                    }
+                    return players;
                 }
                 if (args.length == 3) {
                     return List.of("-s");
