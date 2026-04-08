@@ -144,19 +144,15 @@ public class ChatBotManager implements Listener {
                     " triggered rule '" + rule.name + "'");
             }
             
-            final List<String> cmdsToExecute;
-            if (!rule.answerCmdsRandom.isEmpty() && random.nextBoolean()) {
-                cmdsToExecute = new ArrayList<>(rule.answerCmdsRandom);
-            } else {
-                cmdsToExecute = new ArrayList<>(rule.answerCmds);
+            // Сначала выполняем основные команды (answer_cmds)
+            for (String cmd : rule.answerCmds) {
+                executeCommand(player, message, cmd, rule.delayTicks);
             }
             
-            if (rule.delayTicks > 0) {
-                Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                    executeCommands(player, message, cmdsToExecute);
-                }, rule.delayTicks);
-            } else {
-                executeCommands(player, message, cmdsToExecute);
+            // Затем, если есть случайные ответы, выбираем ОДИН случайный
+            if (!rule.answerCmdsRandom.isEmpty()) {
+                String randomCmd = rule.answerCmdsRandom.get(random.nextInt(rule.answerCmdsRandom.size()));
+                executeCommand(player, message, randomCmd, rule.delayTicks);
             }
             
             lastTriggerTime.put(player.getUniqueId(), now);
@@ -166,14 +162,18 @@ public class ChatBotManager implements Listener {
         }
     }
     
-    private void executeCommands(Player player, String message, List<String> commands) {
-        for (String cmd : commands) {
-            String processed = cmd
-                .replace("%player_name%", player.getName())
-                .replace("%player_uuid%", player.getUniqueId().toString())
-                .replace("%player_world%", player.getWorld().getName())
-                .replace("%message%", message);
-            
+    private void executeCommand(Player player, String message, String cmd, long delayTicks) {
+        String processed = cmd
+            .replace("%player_name%", player.getName())
+            .replace("%player_uuid%", player.getUniqueId().toString())
+            .replace("%player_world%", player.getWorld().getName())
+            .replace("%message%", message);
+        
+        if (delayTicks > 0) {
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                CommandExecutor.execute(plugin, player, null, processed);
+            }, delayTicks);
+        } else {
             CommandExecutor.execute(plugin, player, null, processed);
         }
     }
