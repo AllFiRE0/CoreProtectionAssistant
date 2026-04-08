@@ -205,8 +205,12 @@ public class ReportManager {
         if (!notifyStaff) return;
         
         if (plugin.getConfigManager().getMainConfig().getBoolean("console_logging.reports", true)) {
-            plugin.getLogger().info("[REPORT #" + reportId + "] " + report.getReporterName() + 
-                " → " + report.getTargetName() + ": " + report.getReason());
+            String msg = Lang.get("report_logged")
+                .replace("%id%", String.valueOf(reportId))
+                .replace("%reporter%", report.getReporterName())
+                .replace("%target%", report.getTargetName())
+                .replace("%reason%", report.getReason());
+            plugin.getLogger().info(Lang.colorize(msg));
         }
         
         String msg = Lang.get("report_notify_staff",
