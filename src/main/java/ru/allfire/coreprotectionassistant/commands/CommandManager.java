@@ -30,6 +30,7 @@ public class CommandManager implements CommandExecutor, TabCompleter {
         registerSubCommand(new WarnCommand(plugin));
         registerSubCommand(new ReloadCommand(plugin));
         registerSubCommand(new ReportSubCommand(plugin));
+        registerSubCommand(new ResetStatsCommand(plugin));
         
         var mainCommand = plugin.getCommand("coreprotectionassistant");
         if (mainCommand != null) {
