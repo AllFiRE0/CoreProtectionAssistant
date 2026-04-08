@@ -1,0 +1,191 @@
+# Localization file — ALL plugin messages are configured here
+# Supports color codes: &a, &c, &e, &l, &m, &n, &o, &r
+# Supports HEX colors: &#RRGGBB (e.g., &#FF5500Hello)
+# 
+# Available languages (only content changes, do not change keys):
+#   ru_ru - Russian
+#   en_us - English
+#   de_de - German (in development)
+# 
+# To disable a message, specify "" or "none"
+# ============================================
+
+# Language code (affects date/number formatting)
+# ru_ru - 24-hour format, period as separator (10.5)
+# en_us - 12-hour format, period as separator (10.5)
+lang: "en_us"
+# Prefix added to all messages with %prefix%
+# Do not remove %prefix% from messages below, otherwise there will be no prefix
+# Can be left empty: prefix: ""
+# Can be disabled: prefix: "none"
+prefix: "&8[&c&lCPA&8] &7»"
+
+# ============================================
+# MAIN MESSAGES
+# ============================================
+messages:
+  # ------------------------------------------
+  # General messages
+  # ------------------------------------------
+  # Access denied (no permission)
+  no_permission: "%prefix% &cYou do not have permission."
+  # Player not found in database (never joined)
+  # %player% - player nickname
+  player_not_found: "%prefix% &f%player% &cnot found."
+  # Player is offline
+  # %player% - player nickname
+  player_offline: "%prefix% &f%player% &cis not online."
+  # Successful config reload
+  # %time% - load time in milliseconds
+  reload_success: "%prefix% &aConfiguration reloaded in &f%time%ms&a."
+  # Unknown command
+  unknown_command: "%prefix% &cUnknown command. &f/cpa help"
+  # Command execution error
+  error_executing: "%prefix% &cError executing command."
+
+  # ------------------------------------------
+  # Help (/cpa help)
+  # ------------------------------------------
+  # &m - strikethrough text, &r - reset formatting
+  help_header: "&8&m-----&r &c&lCoreProtectionAssistant &8&m-----"
+  help_stats: "&f/cpa stats <player> &7- Player statistics"
+  help_staff: "&f/cpa staff <player> &7- Staff statistics"
+  help_top: "&f/cpa top <type> &7- Player top"
+  help_check: "&f/cpa check <player> &7- Quick check"
+  help_warn: "&f/cpa warn <player> [reason] &7- Issue a warning"
+  help_warn_clear: "&f/cpa warn clear <player> <amount> &7- Remove"
+  help_reload: "&f/cpa reload &7- Reload config"
+  help_report: "&f/cpa report <player> <reason> &7- Report a player"
+
+  # ------------------------------------------
+  # Player statistics (/cpa stats)
+  # ------------------------------------------
+  stats_usage: "%prefix% &cUsage: &f/cpa stats <player>"
+  # %player% - player nickname
+  stats_header: "&8&m-----&r &cStatistics: &f%player% &8&m-----"
+  # %value% - numeric value
+  stats_blocks_broken: "&7Blocks broken: &f%value%"
+  stats_blocks_placed: "&7Blocks placed: &f%value%"
+  stats_chests_opened: "&7Containers opened: &f%value%"
+  stats_commands: "&7Commands used: &f%value%"
+  stats_deaths: "&7Deaths: &f%value%"
+  stats_kills: "&7Kills: &f%value%"
+  stats_first_seen: "&7First seen: &f%value%"
+  stats_last_seen: "&7Last seen: &f%value%"
+  stats_playtime: "&7Playtime: &f%value%"
+  stats_warnings: "&7Warnings: &f%value%"
+  stats_violations: "&7Chat violations: &f%value%"
+  stats_apologies: "&7Apologies: &f%value%"
+  stats_ratio: "&7Error acknowledgment: &f%value%"
+
+  # ------------------------------------------
+  # Staff statistics (/cpa staff)
+  # ------------------------------------------
+  staff_usage: "%prefix% &cUsage: &f/cpa staff <player>"
+  # Available only for cpa.staff (owner)
+  staff_header: "&8&m-----&r &cStaff: &f%player% &8&m-----"
+  staff_bans: "&7Bans issued: &f%value%"
+  staff_mutes: "&7Mutes issued: &f%value%"
+  staff_kicks: "&7Kicks: &f%value%"
+  staff_gives: "&7Item gives: &f%value%"
+  staff_gamemode_changes: "&7Mode changes: &f%value%"
+  staff_warnings_count: "&7Warnings received: &f%value%"
+  # %value%% - rating from 0 to 100 with percent sign
+  staff_abuse_score: "&7Abuse rating: %value%"
+
+  # ------------------------------------------
+  # Player check (/cpa check)
+  # ------------------------------------------
+  check_usage: "%prefix% &cUsage: &f/cpa check <player>"
+  check_header: "&8&m-----&r &cCheck: &f%player% &8&m-----"
+  check_online: "&7Status: &aOnline"
+  check_offline: "&7Status: &cOffline &7(Last seen: &f%time%&7)"
+  check_warnings: "&7Active warnings: %color%%value%"
+  check_violations: "&7Chat violations: &f%value%"
+  check_apologies: "&7Apologies: &f%value%"
+  check_ratio: "&7Error acknowledgment: &f%value%"
+  check_reports: "&7Reports in 24h: %color%%value%"
+  check_same_ip: "&7Players with same IP: &f%value%"
+  check_same_ip_list: "&7List: &f%list%"
+  check_similar_nicks: "&7Similar nicknames: &f%value%"
+  check_prohibited_perms: "&7Prohibited permissions: &f%value%"
+
+  # ------------------------------------------
+  # Player top (/cpa top)
+  # ------------------------------------------
+  top_usage: "%prefix% &cUsage: &f/cpa top <type> [page]"
+  top_invalid_type: "%prefix% &cInvalid type. Available: %types%"
+  top_invalid_page: "%prefix% &cInvalid page number"
+  top_no_data: "%prefix% &7No data to display"
+  top_header: "&8&m-----&r &cTop: &f%type% &8(Page %page%) &8&m-----"
+  top_format: "&f#%position% &7- &f%player% &8| &7%value%"
+  top_types:
+    warnings: "Warnings"
+    reports: "Reports"
+    blocks_broken: "Blocks broken"
+    blocks_placed: "Blocks placed"
+    playtime: "Playtime"
+    deaths: "Deaths"
+    kills: "Kills"
+
+  # ------------------------------------------
+  # Reports (/report)
+  # ------------------------------------------
+  report_usage: "%prefix% &cUsage: &f/report <player> <reason>"
+  report_player_only: "%prefix% &cThis command is for players only"
+  report_self: "%prefix% &cYou cannot report yourself"
+  # %target% - who is reported
+  # %id% - report ID (for tracking)
+  report_success: "%prefix% &aReport on &f%target% &asubmitted. &7(ID: &f%id%&7)"
+  # %seconds% - how many seconds until next report
+  report_cooldown: "%prefix% &cYou can send reports once every %seconds% sec."
+  report_target_limit: "%prefix% &cThis player already has too many reports. Please wait."
+  report_disabled: "%prefix% &cReport system is disabled"
+  report_failed: "%prefix% &cFailed to save report"
+  report_abuse_warning: "%prefix% &e[!] &cYou are submitting false reports too often. Please be careful."
+  # %id% - report ID
+  # %reporter% - who reported
+  # %target% - who was reported
+  # %reason% - reason
+  report_notify_staff: "%prefix% &e[REPORT #%id%] &f%reporter% &7→ &c%target% &8| &7%reason%"
+
+  # ------------------------------------------
+  # Warnings (/cpa warn)
+  # ------------------------------------------
+  warn_usage: "%prefix% &cUsage: &f/cpa warn <player> [reason]"
+  warn_clear_usage: "%prefix% &cUsage: &f/cpa warn clear <player> <amount>"
+  warn_list_usage: "%prefix% &cUsage: &f/cpa warn list <player>"
+  warn_invalid_amount: "%prefix% &cInvalid amount"
+  # %player% - who received the warning
+  # %reason% - reason
+  warn_success: "%prefix% &aWarning issued to &f%player%&a. &7(%reason%)"
+  # %staff% - who issued the warning
+  # %reason% - reason
+  warn_notify_target: "%prefix% &cYou received a warning from &f%staff%&c. &7(%reason%)"
+  # %amount% - how many warnings removed
+  # %player% - from whom they were removed
+  warn_clear_success: "%prefix% &aRemoved &f%amount% &awarning(s) from &f%player%&a."
+  # %player% - player nickname
+  warn_no_warnings: "%prefix% &7&f%player% &7has no active warnings"
+  warn_list_header: "&8&m-----&r &cWarnings: &f%player% &8&m-----"
+
+  # ------------------------------------------
+  # Time format and words
+  # ------------------------------------------
+  # Used for displaying time in messages
+  time_second: "sec"
+  time_minute: "min"
+  time_hour: "hr"
+  time_day: "day"
+  time_seconds: "sec"
+  time_minutes: "min"
+  time_hours: "hrs"
+  time_days: "days"
+  # For missing values (0 or null)
+  time_never: "Never"
+  # Missing data
+  word_none: "None"
+  word_unknown: "Unknown"
+  word_console: "Console"
+  word_yes: "Yes"
+  word_no: "No"
