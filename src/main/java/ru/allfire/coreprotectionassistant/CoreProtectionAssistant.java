@@ -6,11 +6,10 @@ import ru.allfire.coreprotectionassistant.commands.CommandManager;
 import ru.allfire.coreprotectionassistant.config.ConfigManager;
 import ru.allfire.coreprotectionassistant.config.Lang;
 import ru.allfire.coreprotectionassistant.database.DatabaseManager;
+import ru.allfire.coreprotectionassistant.hooks.CoreProtectDatabaseHook;
 import ru.allfire.coreprotectionassistant.hooks.CoreProtectHook;
 import ru.allfire.coreprotectionassistant.hooks.PapiHook;
-import ru.allfire.coreprotectionassistant.listeners.ChatListener;
-import ru.allfire.coreprotectionassistant.listeners.CommandListener;
-import ru.allfire.coreprotectionassistant.listeners.PlayerListener;
+import ru.allfire.coreprotectionassistant.listeners.*;
 import ru.allfire.coreprotectionassistant.managers.*;
 
 import java.util.logging.Level;
@@ -22,6 +21,7 @@ public final class CoreProtectionAssistant extends JavaPlugin {
     private ConfigManager configManager;
     private DatabaseManager databaseManager;
     private CoreProtectHook coreProtectHook;
+    private CoreProtectDatabaseHook coreProtectDbHook;
     private PapiHook papiHook;
     
     private StaffManager staffManager;
@@ -70,6 +70,10 @@ public final class CoreProtectionAssistant extends JavaPlugin {
             databaseManager.close();
         }
         
+        if (coreProtectDbHook != null) {
+            coreProtectDbHook.close();
+        }
+        
         if (papiHook != null) {
             papiHook.unregister();
         }
@@ -103,6 +107,11 @@ public final class CoreProtectionAssistant extends JavaPlugin {
         coreProtectHook = new CoreProtectHook(this);
         coreProtectHook.init();
         
+        coreProtectDbHook = new CoreProtectDatabaseHook(this);
+        if (coreProtectDbHook.init()) {
+            getLogger().info("§8[§cCoreProtectionAssistant§8] §aCoreProtect database hook enabled");
+        }
+        
         papiHook = new PapiHook(this);
     }
     
@@ -124,6 +133,7 @@ public final class CoreProtectionAssistant extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ChatListener(this), this);
         getServer().getPluginManager().registerEvents(new CommandListener(this), this);
         getServer().getPluginManager().registerEvents(new PlayerListener(this), this);
+        getServer().getPluginManager().registerEvents(new GriefListener(this), this);
     }
     
     private void registerCommands() {
@@ -178,6 +188,10 @@ public final class CoreProtectionAssistant extends JavaPlugin {
     
     public CoreProtectHook getCoreProtectHook() {
         return coreProtectHook;
+    }
+    
+    public CoreProtectDatabaseHook getCoreProtectDbHook() {
+        return coreProtectDbHook;
     }
     
     public StaffManager getStaffManager() {
