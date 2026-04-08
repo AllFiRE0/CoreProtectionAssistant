@@ -3,6 +3,7 @@ package ru.allfire.coreprotectionassistant.managers;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
+import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -22,6 +23,7 @@ public class ChatBotManager implements Listener {
     private final List<BotRule> rules = new ArrayList<>();
     private final Map<UUID, Long> lastTriggerTime = new ConcurrentHashMap<>();
     private final Map<UUID, Map<String, Long>> ruleCooldowns = new ConcurrentHashMap<>();
+    private final Random random = new Random();
     
     private boolean enabled;
     private String globalPermission;
@@ -73,13 +75,17 @@ public class ChatBotManager implements Listener {
             String conditions = ruleSection.getString("conditions", "");
             String symbol = ruleSection.getString("symbol", "");
             long cooldownTicks = ruleSection.getLong("cooldown_ticks", 0);
+            int chance = ruleSection.getInt("chance", 100);
+            long delayTicks = ruleSection.getLong("delay_ticks", 0);
             String regex = ruleSection.getString("regex", ".*");
             List<String> answerCmds = ruleSection.getStringList("answer_cmds");
+            List<String> answerCmdsRandom = ruleSection.getStringList("answer_cmds_random");
             
             BotRule rule = new BotRule(
                 ruleName, priority, permission, conditions, symbol,
-                cooldownTicks, Pattern.compile(regex, Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE),
-                answerCmds
+                cooldownTicks, chance, delayTicks,
+                Pattern.compile(regex, Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE),
+                answerCmds, answerCmdsRandom
             );
             
             rules.add(rule);
@@ -95,18 +101,12 @@ public class ChatBotManager implements Listener {
         
         Player player = event.getPlayer();
         
-        // Проверка исключений
         if (isExcluded(player)) return;
-        
-        // Проверка глобального права
         if (!globalPermission.isEmpty() && !player.hasPermission(globalPermission)) return;
         
         String message = PlainTextComponentSerializer.plainText().serialize(event.message());
-        
-        // Проверка длины сообщения
         if (message.length() > maxMessageLength) return;
         
-        // Глобальный кулдаун
         Long lastGlobal = lastTriggerTime.get(player.getUniqueId());
         long now = System.currentTimeMillis();
         
@@ -115,24 +115,19 @@ public class ChatBotManager implements Listener {
             if (ticksPassed < globalCooldownTicks) return;
         }
         
-        // Проверяем правила
         for (BotRule rule : rules) {
-            // Проверка права
             if (!rule.permission.isEmpty() && !player.hasPermission(rule.permission)) continue;
-            
-            // Проверка символа
             if (!rule.symbol.isEmpty() && !message.startsWith(rule.symbol)) continue;
             
-            // Убираем символ для проверки regex
             String checkMessage = rule.symbol.isEmpty() ? message : message.substring(rule.symbol.length());
-            
-            // Проверка regex
             if (!rule.pattern.matcher(checkMessage).find()) continue;
             
-            // Проверка условий
-            if (!rule.conditions.isEmpty() && !ConditionParser.evaluate(plugin, player, rule.conditions)) continue;
+            // Проверка условий с поддержкой {player}
+            if (!rule.conditions.isEmpty()) {
+                String processedCondition = rule.conditions.replace("{player}", player.getName());
+                if (!ConditionParser.evaluate(plugin, player, processedCondition)) continue;
+            }
             
-            // Проверка кулдауна правила
             Map<String, Long> playerCooldowns = ruleCooldowns.computeIfAbsent(
                 player.getUniqueId(), k -> new ConcurrentHashMap<>()
             );
@@ -143,23 +138,66 @@ public class ChatBotManager implements Listener {
                 if (ticksPassed < rule.cooldownTicks) continue;
             }
             
-            // Срабатывание правила!
+            // Проверка шанса
+            if (rule.chance < 100 && random.nextInt(100) >= rule.chance) continue;
+            
+            // Срабатывание!
             if (logTriggers) {
                 plugin.getLogger().info("[ChatBot] Player " + player.getName() + 
                     " triggered rule '" + rule.name + "': " + message);
             }
             
-            // Выполняем команды
-            for (String cmd : rule.answerCmds) {
-                CommandExecutor.execute(plugin, player, null, cmd);
+            // Выбираем команды (основные или случайные)
+            List<String> cmdsToExecute = new ArrayList<>(rule.answerCmds);
+            if (!rule.answerCmdsRandom.isEmpty() && random.nextBoolean()) {
+                cmdsToExecute = rule.answerCmdsRandom;
             }
             
-            // Обновляем кулдауны
+            // Выполняем с задержкой или сразу
+            if (rule.delayTicks > 0) {
+                Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    executeCommands(player, message, cmdsToExecute);
+                }, rule.delayTicks);
+            } else {
+                executeCommands(player, message, cmdsToExecute);
+            }
+            
             lastTriggerTime.put(player.getUniqueId(), now);
             playerCooldowns.put(rule.name, now);
             
-            break; // Только одно правило за сообщение
+            break;
         }
+    }
+    
+    private void executeCommands(Player player, String message, List<String> commands) {
+        for (String cmd : commands) {
+            String processed = cmd
+                .replace("%player_name%", player.getName())
+                .replace("%player_uuid%", player.getUniqueId().toString())
+                .replace("%player_world%", player.getWorld().getName())
+                .replace("%player_health%", String.valueOf(player.getHealth()))
+                .replace("%player_time%", String.valueOf(player.getWorld().getTime()))
+                .replace("%message%", message);
+            
+            // Извлекаем target если есть упоминание
+            String target = extractTarget(message);
+            if (target != null) {
+                processed = processed.replace("%target%", target);
+            }
+            
+            CommandExecutor.execute(plugin, player, target, processed);
+        }
+    }
+    
+    private String extractTarget(String message) {
+        String[] words = message.split("\\s+");
+        for (String word : words) {
+            Player target = Bukkit.getPlayer(word);
+            if (target != null) {
+                return word;
+            }
+        }
+        return null;
     }
     
     private boolean isExcluded(Player player) {
@@ -167,7 +205,6 @@ public class ChatBotManager implements Listener {
             if (player.hasPermission(perm)) return true;
         }
         if (excludedPlayers.contains(player.getName())) return true;
-        // TODO: проверка групп LuckPerms
         return false;
     }
     
@@ -179,6 +216,10 @@ public class ChatBotManager implements Listener {
         return enabled;
     }
     
+    public int getRulesCount() {
+        return rules.size();
+    }
+    
     private record BotRule(
         String name,
         int priority,
@@ -186,7 +227,10 @@ public class ChatBotManager implements Listener {
         String conditions,
         String symbol,
         long cooldownTicks,
+        int chance,
+        long delayTicks,
         Pattern pattern,
-        List<String> answerCmds
+        List<String> answerCmds,
+        List<String> answerCmdsRandom
     ) {}
 }
