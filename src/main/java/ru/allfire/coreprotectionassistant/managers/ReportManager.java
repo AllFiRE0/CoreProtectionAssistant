@@ -8,7 +8,6 @@ import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
 import ru.allfire.coreprotectionassistant.config.Lang;
 import ru.allfire.coreprotectionassistant.enums.ReportStatus;
 import ru.allfire.coreprotectionassistant.models.PlayerReport;
-import ru.allfire.coreprotectionassistant.utils.Color;
 
 import java.sql.*;
 import java.util.*;
@@ -51,7 +50,6 @@ public class ReportManager {
                 int weight = categoriesSection.getInt(key + ".weight", 1);
                 String description = categoriesSection.getString(key + ".description", key);
                 String color = categoriesSection.getString(key + ".color", "&7");
-                
                 categories.put(key, new ReportCategory(key, regex, weight, description, color));
             }
         }
@@ -63,7 +61,7 @@ public class ReportManager {
     
     public ReportResult createReport(Player reporter, OfflinePlayer target, String reason) {
         if (!enabled) {
-            return new ReportResult(false, "Reports are disabled");
+            return new ReportResult(false, Lang.get("report_disabled"));
         }
         
         Long lastTime = lastReportTime.get(reporter.getUniqueId());
@@ -73,9 +71,7 @@ public class ReportManager {
             long secondsPassed = (now - lastTime) / 1000;
             if (secondsPassed < cooldownSeconds) {
                 long remaining = cooldownSeconds - secondsPassed;
-                String msg = plugin.getConfigManager().getLangConfig()
-                    .getString("messages.report_cooldown", "%prefix% &cWait %seconds% seconds")
-                    .replace("%seconds%", String.valueOf(remaining));
+                String msg = Lang.get("report_cooldown", "seconds", String.valueOf(remaining));
                 return new ReportResult(false, msg);
             }
         }
@@ -83,11 +79,7 @@ public class ReportManager {
         Player onlineTarget = target.getPlayer();
         if (onlineTarget != null) {
             if (!checkReportLimits(reporter, onlineTarget)) {
-                return new ReportResult(false, Color.colorize(
-                    plugin.getConfigManager().getLangConfig()
-                        .getString("messages.report_target_limit", 
-                            "%prefix% &cToo many reports for this player")
-                ));
+                return new ReportResult(false, Lang.get("report_target_limit"));
             }
         }
         
@@ -121,25 +113,17 @@ public class ReportManager {
                 analyzeViolator(onlineTarget);
             }
             
-            String successMsg = plugin.getConfigManager().getLangConfig()
-                .getString("messages.report_success", 
-                    "%prefix% &aReport sent. ID: &f%id%")
-                .replace("%target%", target.getName() != null ? target.getName() : "Unknown")
-                .replace("%id%", String.valueOf(reportId));
-            
-            return new ReportResult(true, Color.colorize(successMsg));
+            String successMsg = Lang.get("report_success", 
+                "target", target.getName() != null ? target.getName() : "Unknown",
+                "id", String.valueOf(reportId));
+            return new ReportResult(true, successMsg);
         }
         
-        return new ReportResult(false, "Failed to save report");
+        return new ReportResult(false, Lang.get("report_failed"));
     }
     
     private long saveReport(PlayerReport report) {
-        String sql = """
-            INSERT INTO cpa_reports 
-            (reporter_uuid, reporter_name, target_uuid, target_name, category, reason, 
-             world, x, y, z, status, timestamp) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """;
+        String sql = "INSERT INTO cpa_reports (reporter_uuid, reporter_name, target_uuid, target_name, category, reason, world, x, y, z, status, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         
         try (Connection conn = plugin.getDatabaseManager().getConnection();
              PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -159,9 +143,10 @@ public class ReportManager {
             
             ps.executeUpdate();
             
-            ResultSet rs = ps.getGeneratedKeys();
-            if (rs.next()) {
-                return rs.getLong(1);
+            try (ResultSet rs = ps.getGeneratedKeys()) {
+                if (rs.next()) {
+                    return rs.getLong(1);
+                }
             }
         } catch (SQLException e) {
             plugin.getLogger().severe("Failed to save report: " + e.getMessage());
@@ -172,15 +157,12 @@ public class ReportManager {
     
     private ReportCategory detectCategory(String reason) {
         String lowerReason = reason.toLowerCase();
-        
         for (ReportCategory category : categories.values()) {
             if (lowerReason.matches(".*" + category.regex + ".*")) {
                 return category;
             }
         }
-        
-        return categories.getOrDefault("other", 
-            new ReportCategory("other", ".*", 1, "Other", "&7"));
+        return categories.getOrDefault("other", new ReportCategory("other", ".*", 1, "Other", "&7"));
     }
     
     private boolean checkReportLimits(Player reporter, Player target) {
@@ -194,7 +176,6 @@ public class ReportManager {
         }
         
         int reportsOnTarget = getReportsCount(target.getUniqueId(), hourAgo);
-        
         return reportsOnTarget < maxReportsPerTargetHour;
     }
     
@@ -207,9 +188,10 @@ public class ReportManager {
             ps.setString(1, targetUuid.toString());
             ps.setLong(2, since);
             
-            ResultSet rs = ps.executeQuery();
-            if (rs.next()) {
-                return rs.getInt(1);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
             }
         } catch (SQLException e) {
             plugin.getLogger().severe("Failed to get reports count: " + e.getMessage());
@@ -219,31 +201,25 @@ public class ReportManager {
     }
     
     private void notifyStaff(long reportId, PlayerReport report) {
-        boolean notifyStaff = plugin.getConfigManager().getReportsConfig()
-            .getBoolean("reports.notify_staff", true);
-        
+        boolean notifyStaff = plugin.getConfigManager().getReportsConfig().getBoolean("reports.notify_staff", true);
         if (!notifyStaff) return;
         
-        String prefix = Lang.getPrefix();
+        String msg = Lang.get("report_notify_staff",
+            "id", String.valueOf(reportId),
+            "reporter", report.getReporterName(),
+            "target", report.getTargetName(),
+            "reason", report.getReason());
         
-        String notifyMsg = plugin.getConfigManager().getLangConfig()
-            .getString("messages.report_notify_staff",
-                "%prefix% &e[REPORT #%id%] &f%reporter% &7→ &c%target% &8| &7%reason%")
-            .replace("%prefix%", prefix)
-            .replace("%id%", String.valueOf(reportId))
-            .replace("%reporter%", report.getReporterName())
-            .replace("%target%", report.getTargetName())
-            .replace("%reason%", report.getReason());
+        if (msg.isEmpty()) return;
         
-        String finalMsg = Color.colorize(notifyMsg);
+        String coloredMsg = Lang.colorize(msg);
         
         for (Player staff : Bukkit.getOnlinePlayers()) {
             if (staff.hasPermission("cpa.report.see")) {
-                staff.sendMessage(finalMsg);
+                staff.sendMessage(coloredMsg);
             }
         }
-        
-        Bukkit.getConsoleSender().sendMessage(finalMsg);
+        Bukkit.getConsoleSender().sendMessage(coloredMsg);
     }
     
     private void checkReportAbuse(Player reporter, Player target) {
@@ -252,23 +228,13 @@ public class ReportManager {
         long reportsLastHour = times.stream().filter(t -> t > hourAgo).count();
         
         if (reportsLastHour >= abuseThreshold) {
-            var antiAbuse = plugin.getConfigManager().getReportsConfig()
-                .getConfigurationSection("anti_abuse.actions");
-            
+            var antiAbuse = plugin.getConfigManager().getReportsConfig().getConfigurationSection("anti_abuse.actions");
             if (antiAbuse != null) {
                 var warnConfig = antiAbuse.getConfigurationSection("warn_reporter");
                 if (warnConfig != null && warnConfig.getBoolean("enabled", true)) {
                     int threshold = warnConfig.getInt("threshold", 5);
-                    
                     if (reportsLastHour >= threshold) {
-                        plugin.getWarnManager().warnPlayer(
-                            reporter.getUniqueId(),
-                            reporter.getName(),
-                            null,
-                            "CONSOLE",
-                            "Report abuse",
-                            36000
-                        );
+                        plugin.getWarnManager().warnPlayer(reporter.getUniqueId(), reporter.getName(), null, "CONSOLE", "Report abuse", 36000);
                     }
                 }
             }
@@ -277,30 +243,19 @@ public class ReportManager {
     
     private void analyzeViolator(Player target) {
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
-            var analysis = plugin.getConfigManager().getReportsConfig()
-                .getConfigurationSection("violator_analysis");
-            
+            var analysis = plugin.getConfigManager().getReportsConfig().getConfigurationSection("violator_analysis");
             if (analysis == null || !analysis.getBoolean("enabled", true)) return;
             
             long hourAgo = System.currentTimeMillis() - 3600000;
             int reportsCount = getReportsCount(target.getUniqueId(), hourAgo);
-            
             int maxReportsThreshold = analysis.getInt("max_reports_threshold", 5);
             
             if (reportsCount >= maxReportsThreshold) {
                 var actions = analysis.getConfigurationSection("actions.auto_warn");
                 if (actions != null && actions.getBoolean("enabled", true)) {
                     int threshold = actions.getInt("threshold", 3);
-                    
                     if (reportsCount >= threshold) {
-                        plugin.getWarnManager().warnPlayer(
-                            target.getUniqueId(),
-                            target.getName(),
-                            null,
-                            "CONSOLE",
-                            "Many player reports",
-                            36000
-                        );
+                        plugin.getWarnManager().warnPlayer(target.getUniqueId(), target.getName(), null, "CONSOLE", "Many player reports", 36000);
                     }
                 }
             }
@@ -310,15 +265,12 @@ public class ReportManager {
     public void cleanupOldReports() {
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
             long cutoff = System.currentTimeMillis() - (cleanupDays * 24L * 3600000);
-            
             String sql = "DELETE FROM cpa_reports WHERE timestamp < ? AND status IN ('RESOLVED', 'REJECTED')";
             
             try (Connection conn = plugin.getDatabaseManager().getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
-                
                 ps.setLong(1, cutoff);
                 int deleted = ps.executeUpdate();
-                
                 if (deleted > 0) {
                     plugin.getLogger().info("Cleaned up " + deleted + " old reports");
                 }
@@ -328,8 +280,6 @@ public class ReportManager {
         });
     }
     
-    public record ReportCategory(String name, String regex, int weight, 
-                                  String description, String color) {}
-    
+    public record ReportCategory(String name, String regex, int weight, String description, String color) {}
     public record ReportResult(boolean success, String message) {}
 }
