@@ -5,8 +5,10 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
-import ru.allfire.coreprotectionassistant.utils.Color;
+import ru.allfire.coreprotectionassistant.config.Lang;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -46,7 +48,7 @@ public class CheckCommand implements CommandManager.SubCommand {
     @Override
     public boolean execute(CommandSender sender, String[] args) {
         if (args.length < 1) {
-            sender.sendMessage(Color.colorize("&cUsage: " + getUsage()));
+            Lang.send(sender, "check_usage");
             return true;
         }
         
@@ -54,61 +56,54 @@ public class CheckCommand implements CommandManager.SubCommand {
         OfflinePlayer offlineTarget = Bukkit.getOfflinePlayer(targetName);
         
         if (!offlineTarget.hasPlayedBefore() && !offlineTarget.isOnline()) {
-            sender.sendMessage(Color.colorize(
-                plugin.getConfigManager().getLangConfig().getString("messages.player_not_found",
-                    "%prefix% &cPlayer not found")
-                    .replace("%player%", targetName)
-            ));
+            Lang.send(sender, "player_not_found", "player", targetName);
             return true;
         }
         
         UUID targetUuid = offlineTarget.getUniqueId();
         
-        sender.sendMessage(Color.colorize(
-            plugin.getConfigManager().getLangConfig().getString("messages.check_header",
-                "&8&m-----&r &cCheck: &f%player% &8&m-----")
-                .replace("%player%", offlineTarget.getName())
-        ));
+        Lang.send(sender, "check_header", "player", offlineTarget.getName());
         
         // Предупреждения
         plugin.getWarnManager().getActiveWarningsCount(targetUuid).thenAccept(count -> {
             String color = count >= 3 ? "&c" : (count >= 1 ? "&e" : "&a");
-            sender.sendMessage(Color.colorize(
-                plugin.getConfigManager().getLangConfig().getString("messages.check_warnings",
-                    "&7Active warnings: " + color + "%value%")
-                    .replace("%value%", String.valueOf(count))
-            ));
+            String message = Lang.get("check_warnings")
+                .replace("%color%", color)
+                .replace("%value%", String.valueOf(count));
+            if (!message.isEmpty()) {
+                sender.sendMessage(Lang.colorize(message));
+            }
         });
         
         // Нарушения чата
         plugin.getDatabaseManager().getViolationCount(targetUuid).thenAccept(count -> {
-            sender.sendMessage(Color.colorize(
-                plugin.getConfigManager().getLangConfig().getString("messages.check_violations",
-                    "&7Chat violations: &f%value%")
-                    .replace("%value%", String.valueOf(count))
-            ));
+            Lang.send(sender, "check_violations", "value", String.valueOf(count));
         });
         
         // Жалобы за 24 часа
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
             int reports24h = getReportsCount24h(targetUuid);
             String color = reports24h >= 5 ? "&c" : (reports24h >= 2 ? "&e" : "&a");
-            sender.sendMessage(Color.colorize(
-                plugin.getConfigManager().getLangConfig().getString("messages.check_reports",
-                    "&7Reports (24h): " + color + "%value%")
-                    .replace("%value%", String.valueOf(reports24h))
-            ));
+            String message = Lang.get("check_reports")
+                .replace("%color%", color)
+                .replace("%value%", String.valueOf(reports24h));
+            if (!message.isEmpty()) {
+                sender.sendMessage(Lang.colorize(message));
+            }
         });
         
         // Статус
         if (offlineTarget.isOnline()) {
-            sender.sendMessage(Color.colorize("&7Status: &aOnline"));
+            Lang.send(sender, "check_online");
         } else {
             long lastSeen = offlineTarget.getLastSeen();
             String lastSeenStr = lastSeen > 0 ? 
-                new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm").format(new java.util.Date(lastSeen)) : 
-                "Never";
-            sender.sendMessage(Color.colorize("&7Status: &cOffline &7(Last seen: &f" + lastSeenStr + "&7)"));
+                new SimpleDateFormat("yyyy-MM-dd HH:mm").format(new Date(lastSeen)) : 
+                Lang.get("time_never");
+            String message = Lang.get("check_offline").replace("%time%", lastSeenStr);
+            if (!message.isEmpty()) {
+                sender.sendMessage(Lang.colorize(message));
+            }
         }
         
         return true;
