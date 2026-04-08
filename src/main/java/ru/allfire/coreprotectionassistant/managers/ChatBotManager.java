@@ -11,6 +11,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
+import ru.allfire.coreprotectionassistant.config.Lang;
 import ru.allfire.coreprotectionassistant.utils.CommandExecutor;
 import ru.allfire.coreprotectionassistant.utils.ConditionParser;
 
@@ -140,16 +141,16 @@ public class ChatBotManager implements Listener {
             if (rule.chance < 100 && random.nextInt(100) >= rule.chance) continue;
             
             if (logTriggers && plugin.getConfigManager().getMainConfig().getBoolean("console_logging.chatbot", true)) {
-                plugin.getLogger().info("[ChatBot] Player " + player.getName() + 
-                    " triggered rule '" + rule.name + "'");
+                String msg = Lang.get("chatbot_triggered")
+                    .replace("%player%", player.getName())
+                    .replace("%rule%", rule.name);
+                plugin.getLogger().info(Lang.colorize(msg));
             }
             
-            // Сначала выполняем основные команды (answer_cmds)
             for (String cmd : rule.answerCmds) {
                 executeCommand(player, message, cmd, rule.delayTicks);
             }
             
-            // Затем, если есть случайные ответы, выбираем ОДИН случайный
             if (!rule.answerCmdsRandom.isEmpty()) {
                 String randomCmd = rule.answerCmdsRandom.get(random.nextInt(rule.answerCmdsRandom.size()));
                 executeCommand(player, message, randomCmd, rule.delayTicks);
