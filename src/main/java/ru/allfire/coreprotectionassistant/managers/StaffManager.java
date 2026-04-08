@@ -30,11 +30,7 @@ public class StaffManager {
     
     public void logStaffAction(Player staff, String action, String target, String details) {
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
-            String sql = """
-                INSERT INTO cpa_staff_actions 
-                (staff_uuid, staff_name, action, target, details, world, x, y, z, timestamp) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """;
+            String sql = "INSERT INTO cpa_staff_actions (staff_uuid, staff_name, action, target, details, world, x, y, z, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             
             try (Connection conn = plugin.getDatabaseManager().getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -51,6 +47,11 @@ public class StaffManager {
                 ps.setLong(10, System.currentTimeMillis());
                 
                 ps.executeUpdate();
+                
+                if (plugin.getConfigManager().getMainConfig().getBoolean("console_logging.staff_commands", true)) {
+                    plugin.getLogger().info("Staff " + staff.getName() + " used /" + action + 
+                        (target != null ? " on " + target : ""));
+                }
                 
                 StaffStats stats = statsCache.computeIfAbsent(
                     staff.getUniqueId(), k -> new StaffStats()
@@ -145,16 +146,7 @@ public class StaffManager {
             StaffStats stats = new StaffStats();
             
             plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
-                String sql = """
-                    SELECT 
-                        SUM(CASE WHEN action = 'BAN' THEN 1 ELSE 0 END) as bans,
-                        SUM(CASE WHEN action = 'MUTE' THEN 1 ELSE 0 END) as mutes,
-                        SUM(CASE WHEN action = 'KICK' THEN 1 ELSE 0 END) as kicks,
-                        SUM(CASE WHEN action = 'GIVE' THEN 1 ELSE 0 END) as gives,
-                        SUM(CASE WHEN action = 'GAMEMODE' THEN 1 ELSE 0 END) as gamemodes
-                    FROM cpa_staff_actions 
-                    WHERE staff_uuid = ?
-                """;
+                String sql = "SELECT SUM(CASE WHEN action = 'BAN' THEN 1 ELSE 0 END) as bans, SUM(CASE WHEN action = 'MUTE' THEN 1 ELSE 0 END) as mutes, SUM(CASE WHEN action = 'KICK' THEN 1 ELSE 0 END) as kicks, SUM(CASE WHEN action = 'GIVE' THEN 1 ELSE 0 END) as gives, SUM(CASE WHEN action = 'GAMEMODE' THEN 1 ELSE 0 END) as gamemodes FROM cpa_staff_actions WHERE staff_uuid = ?";
                 
                 try (Connection conn = plugin.getDatabaseManager().getConnection();
                      PreparedStatement ps = conn.prepareStatement(sql)) {
