@@ -29,9 +29,16 @@ public class WarnManager {
         long now = System.currentTimeMillis();
         long expiresAt = durationTicks > 0 ? now + (durationTicks * 50) : 0;
         
-        StaffWarning warning = new StaffWarning(
-            0, targetUuid, targetName, staffUuid, staffName, reason, true, now, expiresAt, 0, null
-        );
+        StaffWarning warning = StaffWarning.builder()
+            .playerUuid(targetUuid)
+            .playerName(targetName)
+            .staffUuid(staffUuid)
+            .staffName(staffName)
+            .reason(reason)
+            .active(true)
+            .createdAt(now)
+            .expiresAt(expiresAt)
+            .build();
         
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
             String sql = "INSERT INTO cpa_warnings (player_uuid, player_name, staff_uuid, staff_name, reason, active, created_at, expires_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?)";
@@ -136,19 +143,19 @@ public class WarnManager {
                 ResultSet rs = ps.executeQuery();
                 
                 while (rs.next()) {
-                    StaffWarning warning = new StaffWarning(
-                        rs.getLong("id"),
-                        UUID.fromString(rs.getString("player_uuid")),
-                        rs.getString("player_name"),
-                        rs.getString("staff_uuid") != null ? UUID.fromString(rs.getString("staff_uuid")) : null,
-                        rs.getString("staff_name"),
-                        rs.getString("reason"),
-                        rs.getBoolean("active"),
-                        rs.getLong("created_at"),
-                        rs.getLong("expires_at"),
-                        rs.getLong("cleared_at"),
-                        rs.getString("cleared_by")
-                    );
+                    StaffWarning warning = StaffWarning.builder()
+                        .id(rs.getLong("id"))
+                        .playerUuid(UUID.fromString(rs.getString("player_uuid")))
+                        .playerName(rs.getString("player_name"))
+                        .staffUuid(rs.getString("staff_uuid") != null ? UUID.fromString(rs.getString("staff_uuid")) : null)
+                        .staffName(rs.getString("staff_name"))
+                        .reason(rs.getString("reason"))
+                        .active(rs.getBoolean("active"))
+                        .createdAt(rs.getLong("created_at"))
+                        .expiresAt(rs.getLong("expires_at"))
+                        .clearedAt(rs.getLong("cleared_at"))
+                        .clearedBy(rs.getString("cleared_by"))
+                        .build();
                     warnings.add(warning);
                 }
             } catch (SQLException e) {
