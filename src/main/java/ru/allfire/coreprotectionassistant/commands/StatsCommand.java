@@ -67,7 +67,7 @@ public class StatsCommand implements CommandManager.SubCommand {
         
         CoreProtectHook hook = plugin.getCoreProtectHook();
         
-        // Блоки
+        // Блоки из CoreProtect
         hook.getBlocksBroken(targetUuid, 0).thenAccept(count -> {
             Lang.send(sender, "stats_blocks_broken", "value", String.valueOf(count));
         });
@@ -80,12 +80,12 @@ public class StatsCommand implements CommandManager.SubCommand {
             Lang.send(sender, "stats_chests_opened", "value", String.valueOf(count));
         });
         
-        // Команды
-        hook.getCommandsUsed(targetUuid, 0).thenAccept(count -> {
+        // Команды из нашей БД
+        plugin.getDatabaseManager().getTotalCommandsUsed(targetUuid).thenAccept(count -> {
             Lang.send(sender, "stats_commands", "value", String.valueOf(count));
         });
         
-        // Смерти/убийства
+        // Смерти/убийства из CoreProtect
         hook.getDeaths(targetUuid, 0).thenAccept(count -> {
             Lang.send(sender, "stats_deaths", "value", String.valueOf(count));
         });
