@@ -114,6 +114,24 @@ CoreProtectionAssistant (CPA) is a **zero-trust** staff monitoring and player re
 | `reports.yml` | Report categories and anti-abuse settings |
 | `chatbot.yml` | ChatBot rules and responses (NEW) |
 
+### Grief Detection (`config.yml` section)
+```yaml
+grief_detection:
+  enabled: true
+  allowed_regions:
+    - "__global__"
+    - "otherRegion"
+  tracked_blocks:
+    - "CHEST"
+    - "FURNACE"
+    - "BARREL"
+  grief_commands:
+    - "asConsole! cpa warn %player_name% Griefing detected -t:20m -s"
+  staff_grief_commands:
+    - "asConsole! cpa warn %player_name% Staff griefing -t:1h"
+  abuse_weight: 10
+  min_time_between_actions: 5
+
 ---
 
 ## 🎮 Commands
@@ -125,9 +143,9 @@ CoreProtectionAssistant (CPA) is a **zero-trust** staff monitoring and player re
 | `/cpa staff <player>` | `cpa.staff` | View staff member statistics |
 | `/cpa top <type> [page]` | `cpa.moder` | View leaderboards |
 | `/cpa check <player>` | `cpa.moder` | Quick player check |
-| `/cpa warn <player> [reason] [-t:time] [-s]` | `cpa.warn` | Issue warning |
-| `/cpa warn clear <player> <amount> [-s]` | `cpa.warn.clear` | Clear warnings |
-| `/cpa warn list <player> [-s]` | `cpa.moder` | List active warnings |
+| `/cpa warn <player> [reason] [-t:1d\|1h\|1m\|1s] [-s]` | `cpa.warn` | Issue warning (temporary or permanent, silent mode) |
+| `/cpa warn clear <player> <amount> [-s]` | `cpa.warn.clear` | Clear warnings (silent mode supported) |
+| `/cpa warn list <player> [-s]` | `cpa.moder` | List active warnings (silent mode supported) |
 | `/cpa reload` | `cpa.reload` | Reload configuration |
 | `/cpa report <player> <reason>` | `cpa.report` | Report a player (staff) |
 | `/report <player> <reason>` | `cpa.report` | Report a player |
@@ -162,7 +180,6 @@ CoreProtectionAssistant (CPA) is a **zero-trust** staff monitoring and player re
 | `%cpa_player_blocks_broken%` | Total blocks broken |
 | `%cpa_player_blocks_placed%` | Total blocks placed |
 | `%cpa_player_chests_opened%` | Total containers opened |
-| `%cpa_player_commands_count%` | Total commands used |
 | `%cpa_player_deaths%` | Total deaths |
 | `%cpa_player_kills%` | Total kills |
 | `%cpa_player_first_seen%` | First join date |
@@ -170,9 +187,10 @@ CoreProtectionAssistant (CPA) is a **zero-trust** staff monitoring and player re
 | `%cpa_player_warnings_count%` | Active warnings |
 | `%cpa_player_violations_count%` | Chat violations |
 | `%cpa_player_apologies_count%` | Total apologies (NEW) |
-| `%cpa_player_violations_apologies_ratio%` | Repentance ratio (NEW) |
+| `%cpa_player_violations_apologies_ratio%` | Repentance ratio |
 | `%cpa_player_time_since_last_violation%` | Seconds since last violation |
-| `%cpa_player_cmd_<command>%` | Usage count of specific command |
+| `%cpa_player_cmd_<command>%` | Usage count of specific command (e.g., `%cpa_player_cmd_tpa%`) |
+| `%cpa_player_commands_count%` | Total commands used (from internal DB) |
 
 ### Staff Statistics
 | Placeholder | Description |
@@ -198,16 +216,18 @@ Supports both **SQLite** (default) and **MySQL**.
 - `cpa_chat_violations` — Chat filter violations
 - `cpa_apologies` — Apology history
 - `cpa_abuse_scores` — Staff abuse scores
-- `cpa_grief_actions` — Grief detection log (NEW)
+- `cpa_grief_actions` — Grief detection log
+- `cpa_player_commands` — All tracked player and staff commands
 
 ---
 
 ### Acknowledgements
-~ PaperMC — Server software
-~ CoreProtect — Block logging
-~ PlaceholderAPI — Placeholder support
-~ CMI — Economy & playtime
-~ LuckPerms — Permission management
+- PaperMC — Server software
+- CoreProtect — Block logging
+- PlaceholderAPI — Placeholder support
+- CMI — Economy & playtime
+- LuckPerms — Permission management
+- WorldGuard — Region protection
 
 ---
 
