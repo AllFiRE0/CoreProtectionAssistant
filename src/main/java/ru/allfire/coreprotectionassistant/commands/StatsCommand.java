@@ -5,8 +5,8 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
+import ru.allfire.coreprotectionassistant.config.Lang;
 import ru.allfire.coreprotectionassistant.hooks.CoreProtectHook;
-import ru.allfire.coreprotectionassistant.utils.Color;
 import ru.allfire.coreprotectionassistant.utils.TimeUtil;
 
 import java.util.List;
@@ -49,7 +49,7 @@ public class StatsCommand implements CommandManager.SubCommand {
     @Override
     public boolean execute(CommandSender sender, String[] args) {
         if (args.length < 1) {
-            sender.sendMessage(Color.colorize("&cUsage: " + getUsage()));
+            Lang.send(sender, "stats_usage");
             return true;
         }
         
@@ -57,85 +57,67 @@ public class StatsCommand implements CommandManager.SubCommand {
         OfflinePlayer offlineTarget = Bukkit.getOfflinePlayer(targetName);
         
         if (!offlineTarget.hasPlayedBefore() && !offlineTarget.isOnline()) {
-            sender.sendMessage(Color.colorize(
-                plugin.getConfigManager().getLangConfig().getString("messages.player_not_found",
-                    "%prefix% &cPlayer not found")
-                    .replace("%player%", targetName)
-            ));
+            Lang.send(sender, "player_not_found", "player", targetName);
             return true;
         }
         
         UUID targetUuid = offlineTarget.getUniqueId();
-        Player onlineTarget = offlineTarget.getPlayer();
         
-        sender.sendMessage(Color.colorize(
-            plugin.getConfigManager().getLangConfig().getString("messages.stats_header",
-                "&8&m-----&r &cStats: &f%player% &8&m-----")
-                .replace("%player%", offlineTarget.getName())
-        ));
+        Lang.send(sender, "stats_header", "player", offlineTarget.getName());
         
         CoreProtectHook hook = plugin.getCoreProtectHook();
         
         // Блоки
         hook.getBlocksBroken(targetUuid, 0).thenAccept(count -> {
-            sendMessage(sender, "stats_blocks_broken", count);
+            Lang.send(sender, "stats_blocks_broken", "value", String.valueOf(count));
         });
         
         hook.getBlocksPlaced(targetUuid, 0).thenAccept(count -> {
-            sendMessage(sender, "stats_blocks_placed", count);
+            Lang.send(sender, "stats_blocks_placed", "value", String.valueOf(count));
         });
         
         hook.getChestsOpened(targetUuid, 0).thenAccept(count -> {
-            sendMessage(sender, "stats_chests_opened", count);
+            Lang.send(sender, "stats_chests_opened", "value", String.valueOf(count));
         });
         
         // Команды
         hook.getCommandsUsed(targetUuid, 0).thenAccept(count -> {
-            sendMessage(sender, "stats_commands", count);
+            Lang.send(sender, "stats_commands", "value", String.valueOf(count));
         });
         
         // Смерти/убийства
         hook.getDeaths(targetUuid, 0).thenAccept(count -> {
-            sendMessage(sender, "stats_deaths", count);
+            Lang.send(sender, "stats_deaths", "value", String.valueOf(count));
         });
         
         hook.getKills(targetUuid, 0).thenAccept(count -> {
-            sendMessage(sender, "stats_kills", count);
+            Lang.send(sender, "stats_kills", "value", String.valueOf(count));
         });
         
         // Время
         CompletableFuture.allOf(
             hook.getFirstSeen(targetUuid).thenAccept(time -> {
-                String formatted = time > 0 ? TimeUtil.formatDateTime(time) : 
-                    plugin.getConfigManager().getLangConfig().getString("time_never", "Never");
-                sendMessage(sender, "stats_first_seen", formatted);
+                String formatted = time > 0 ? TimeUtil.formatDateTime(time) : Lang.get("time_never");
+                Lang.send(sender, "stats_first_seen", "value", formatted);
             }),
             
             hook.getLastSeen(targetUuid).thenAccept(time -> {
-                String formatted = time > 0 ? TimeUtil.formatDateTime(time) : 
-                    plugin.getConfigManager().getLangConfig().getString("time_never", "Never");
-                sendMessage(sender, "stats_last_seen", formatted);
+                String formatted = time > 0 ? TimeUtil.formatDateTime(time) : Lang.get("time_never");
+                Lang.send(sender, "stats_last_seen", "value", formatted);
             })
         );
         
         // Предупреждения
         plugin.getWarnManager().getActiveWarningsCount(targetUuid).thenAccept(count -> {
-            sendMessage(sender, "stats_warnings", count);
+            Lang.send(sender, "stats_warnings", "value", String.valueOf(count));
         });
         
         // Нарушения чата
         plugin.getDatabaseManager().getViolationCount(targetUuid).thenAccept(count -> {
-            sendMessage(sender, "stats_violations", count);
+            Lang.send(sender, "stats_violations", "value", String.valueOf(count));
         });
         
         return true;
-    }
-    
-    private void sendMessage(CommandSender sender, String key, Object value) {
-        String message = plugin.getConfigManager().getLangConfig()
-            .getString("messages." + key, "&7" + key + ": &f%value%")
-            .replace("%value%", String.valueOf(value));
-        sender.sendMessage(Color.colorize(message));
     }
     
     @Override
