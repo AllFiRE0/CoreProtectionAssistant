@@ -6,9 +6,6 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 
 @Getter
 public class ConfigManager {
@@ -86,25 +83,9 @@ public class ConfigManager {
         loadChatBotConfig();
     }
     
-    // ========== ГЕТТЕРЫ (добавь эти методы) ==========
-    
-    public FileConfiguration getMainConfig() {
-        return mainConfig;
-    }
-    
-    public FileConfiguration getLangConfig() {
-        return langConfig;
-    }
-    
-    public FileConfiguration getChatRulesConfig() {
-        return chatRulesConfig;
-    }
-    
-    public FileConfiguration getReportsConfig() {
-        return reportsConfig;
-    }
-    
-    public FileConfiguration getChatBotConfig() {
-        return chatBotConfig;
-    }
+    public FileConfiguration getMainConfig() { return mainConfig; }
+    public FileConfiguration getLangConfig() { return langConfig; }
+    public FileConfiguration getChatRulesConfig() { return chatRulesConfig; }
+    public FileConfiguration getReportsConfig() { return reportsConfig; }
+    public FileConfiguration getChatBotConfig() { return chatBotConfig; }
 }
