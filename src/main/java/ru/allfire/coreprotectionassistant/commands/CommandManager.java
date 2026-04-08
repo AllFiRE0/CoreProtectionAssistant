@@ -16,6 +16,7 @@ public class CommandManager implements CommandExecutor, TabCompleter {
     
     private final CoreProtectionAssistant plugin;
     private final Map<String, SubCommand> subCommands = new LinkedHashMap<>();
+    private final Set<String> registeredHelp = new HashSet<>();
     
     public CommandManager(CoreProtectionAssistant plugin) {
         this.plugin = plugin;
@@ -112,19 +113,27 @@ public class CommandManager implements CommandExecutor, TabCompleter {
     }
     
     private void sendHelp(CommandSender sender) {
+        registeredHelp.clear();
+        
         String header = Lang.get("help_header");
         if (!header.isEmpty()) {
             sender.sendMessage(Lang.colorize(header));
         }
         
         for (SubCommand cmd : subCommands.values()) {
-            if (cmd.getName().equals(cmd.getName().toLowerCase()) && 
-                sender.hasPermission(cmd.getPermission())) {
-                String helpLine = Lang.get("help_" + cmd.getName());
-                if (helpLine.isEmpty()) {
-                    helpLine = "&f/cpa " + cmd.getName() + " &7- " + cmd.getDescription();
+            String cmdName = cmd.getName().toLowerCase();
+            
+            // Показываем только основное имя (не алиасы) и только один раз
+            if (cmd.getName().equals(cmdName) && !registeredHelp.contains(cmdName)) {
+                if (sender.hasPermission(cmd.getPermission())) {
+                    registeredHelp.add(cmdName);
+                    
+                    String helpLine = Lang.get("help_" + cmdName);
+                    if (helpLine.isEmpty()) {
+                        helpLine = "&f/cpa " + cmdName + " &7- " + cmd.getDescription();
+                    }
+                    sender.sendMessage(Lang.colorize(helpLine));
                 }
-                sender.sendMessage(Lang.colorize(helpLine));
             }
         }
     }
