@@ -200,3 +200,45 @@ messages:
   word_console: "Консоль"
   word_yes: "Да"
   word_no: "Нет"
+
+  # ==========================================
+  # Сброс статистики
+  # ==========================================
+  resetstats_usage: "%prefix% &cUsage: /cpa resetstats <player> <type>"
+  resetstats_invalid_type: "%prefix% &cInvalid type. Available: %types%"
+  resetstats_success: "%prefix% &aReset %type% statistics for %player%"
+  
+  # ==========================================
+  # Гриф детекция (логи)
+  # ==========================================
+  grief_possible: "&cPossible grief: &f%player% &cbroke &f%block% &cat &f%world% %x% %y% %z% &cowned by &f%owner%"
+  grief_interact: "&7Player &f%player% &7interacted with &f%block% &7owned by &f%owner%"
+  
+  # ==========================================
+  # Чат-бот (логи)
+  # ==========================================
+  chatbot_triggered: "[ChatBot] Player %player% triggered rule '%rule%'"
+  
+  # ==========================================
+  # Команды (логи)
+  # ==========================================
+  command_logged: "[CommandListener] Player: %player%, Command: %command%, isStaff: %staff%"
+  command_logged_to_db: "[CommandListener] Logging to %table%: %command%"
+  staff_command_logged: "Staff %staff% used /%action%%target%"
+  
+  # ==========================================
+  # Предупреждения (логи)
+  # ==========================================
+  warn_issued_log: "Warning issued to %target% by %staff%: %reason%"
+  warn_cleared_log: "Cleared %amount% warnings for %player%"
+  warn_auto_cleared_log: "Auto-cleared %amount% expired warnings"
+  
+  # ==========================================
+  # Жалобы (логи)
+  # ==========================================
+  report_logged: "[REPORT #%id%] %reporter% → %target%: %reason%"
+  
+  # ==========================================
+  # Abuse Score (логи)
+  # ==========================================
+  abuse_score_added_log: "Added %weight% abuse score to %player% (%reason%). Total: %total%"
