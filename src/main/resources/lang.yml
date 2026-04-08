@@ -9,6 +9,7 @@
 # 
 # Чтобы отключить сообщение, укажите "" или "none"
 # ============================================
+
 # Код языка (влияет на форматирование дат/чисел)
 # ru_ru - 24-часовой формат, точка как разделитель (10.5)
 # en_us - 12-часовой формат, точка как разделитель (10.5)
@@ -74,6 +75,8 @@ messages:
   stats_playtime: "&7Наиграно: &f%value%"
   stats_warnings: "&7Предупреждений: &f%value%"
   stats_violations: "&7Нарушений чата: &f%value%"
+  stats_apologies: "&7Извинений: &f%value%"
+  stats_ratio: "&7Признание ошибок: &f%value%"
 
   # ------------------------------------------
   # Статистика персонала (/cpa staff)
@@ -99,7 +102,13 @@ messages:
   check_offline: "&7Статус: &cОффлайн &7(Последний вход: &f%time%&7)"
   check_warnings: "&7Активных предупреждений: %color%%value%"
   check_violations: "&7Нарушений чата: &f%value%"
+  check_apologies: "&7Извинений: &f%value%"
+  check_ratio: "&7Признание ошибок: &f%value%"
   check_reports: "&7Жалоб за 24 часа: %color%%value%"
+  check_same_ip: "&7Игроков с таким же IP: &f%value%"
+  check_same_ip_list: "&7Список: &f%list%"
+  check_similar_nicks: "&7Похожих ников: &f%value%"
+  check_prohibited_perms: "&7Запрещенные права: &f%value%"
 
   # ------------------------------------------
   # Топ игроков (/cpa top)
@@ -133,13 +142,13 @@ messages:
   report_target_limit: "%prefix% &cНа этого игрока уже много жалоб. Подождите."
   report_disabled: "%prefix% &cСистема жалоб отключена"
   report_failed: "%prefix% &cНе удалось сохранить жалобу"
-  
+  report_abuse_warning: "%prefix% &e[!] &cВы часто отправляете ложные жалобы. Будьте внимательнее."
   # %id% - ID жалобы
   # %reporter% - кто пожаловался
   # %target% - на кого
   # %reason% - причина
   report_notify_staff: "%prefix% &e[ЖАЛОБА #%id%] &f%reporter% &7→ &c%target% &8| &7%reason%"
-  
+
   # ------------------------------------------
   # Предупреждения (/cpa warn)
   # ------------------------------------------
@@ -178,3 +187,5 @@ messages:
   word_none: "Нет"
   word_unknown: "Неизвестно"
   word_console: "Консоль"
+  word_yes: "Да"
+  word_no: "Нет"
