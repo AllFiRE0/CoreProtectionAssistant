@@ -83,8 +83,12 @@ public class AbuseScoreManager {
                 }
                 
                 if (plugin.getConfigManager().getMainConfig().getBoolean("console_logging.abuse_score", true)) {
-                    plugin.getLogger().info("Added " + weight + " abuse score to " + 
-                        playerName + " (" + reason + "). Total: " + newScore);
+                    String msg = Lang.get("abuse_score_added_log")
+                        .replace("%weight%", String.valueOf(weight))
+                        .replace("%player%", playerName)
+                        .replace("%reason%", reason)
+                        .replace("%total%", String.valueOf(newScore));
+                    plugin.getLogger().info(Lang.colorize(msg));
                 }
                 
             } catch (SQLException e) {
