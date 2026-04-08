@@ -8,6 +8,7 @@ import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
 import ru.allfire.coreprotectionassistant.config.Lang;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -80,6 +81,16 @@ public class CheckCommand implements CommandManager.SubCommand {
             Lang.send(sender, "check_violations", "value", String.valueOf(count));
         });
         
+        // Извинения
+        plugin.getDatabaseManager().getApologiesCount(targetUuid).thenAccept(count -> {
+            Lang.send(sender, "check_apologies", "value", String.valueOf(count));
+        });
+        
+        // Соотношение извинений к нарушениям
+        plugin.getDatabaseManager().getViolationsApologiesRatio(targetUuid).thenAccept(ratio -> {
+            Lang.send(sender, "check_ratio", "value", ratio);
+        });
+        
         // Жалобы за 24 часа
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
             int reports24h = getReportsCount24h(targetUuid);
@@ -133,10 +144,32 @@ public class CheckCommand implements CommandManager.SubCommand {
     @Override
     public List<String> tabComplete(CommandSender sender, String[] args) {
         if (args.length == 1) {
-            return Bukkit.getOnlinePlayers().stream()
-                .map(Player::getName)
-                .filter(n -> n.toLowerCase().startsWith(args[0].toLowerCase()))
-                .toList();
+            String partialName = args[0].toLowerCase();
+            List<String> suggestions = new ArrayList<>();
+            
+            // Онлайн игроки
+            for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
+                String name = onlinePlayer.getName();
+                if (name.toLowerCase().startsWith(partialName)) {
+                    suggestions.add(name);
+                }
+            }
+            
+            // Оффлайн игроки (до 20)
+            int offlineCount = 0;
+            for (OfflinePlayer offlinePlayer : Bukkit.getOfflinePlayers()) {
+                if (offlineCount >= 20) break;
+                String name = offlinePlayer.getName();
+                if (name != null && name.toLowerCase().startsWith(partialName)) {
+                    if (!suggestions.contains(name)) {
+                        suggestions.add(name);
+                        offlineCount++;
+                    }
+                }
+            }
+            
+            suggestions.sort(String::compareToIgnoreCase);
+            return suggestions;
         }
         return List.of();
     }
