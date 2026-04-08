@@ -361,3 +361,18 @@ grief_detection:
   # Защита от спама - если игрок ломает много блоков подряд,
   # детекция сработает только раз в указанный интервал
   min_time_between_actions: 60
+
+# ============================================
+# ЛОГИРОВАНИЕ В КОНСОЛЬ
+# ============================================
+console_logging:
+  # Запрещённые права
+  prohibited_permissions: false
+  # Abuse score изменения
+  abuse_score: false
+  # Гриф детекция
+  grief_detection: false
+  # Выдача предупреждений
+  warnings: false
+  # Чат-бот срабатывания
+  chatbot: false
