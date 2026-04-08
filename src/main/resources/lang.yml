@@ -42,6 +42,9 @@ messages:
   unknown_command: "%prefix% &cНеизвестная команда. &f/cpa help"
   # Ошибка выполнения команды
   error_executing: "%prefix% &cОшибка выполнения команды."
+  grief_possible: "&c[CPA] Possible grief: &f%player% &cbroke &f%block% &cat &f%world% %x% %y% %z%"
+  grief_staff_suspected: "&c[CPA] Staff member &f%player% &csuspected of griefing!"
+  grief_interact: "&7Player &f%player% &7interacted with &f%block% &7owned by &f%owner%"
 
   # ------------------------------------------
   # Помощь (/cpa help)
