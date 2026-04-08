@@ -27,21 +27,16 @@ public class GriefListener implements Listener {
         this.plugin = plugin;
     }
     
-    /**
-     * Проверяет, разрешён ли антигриф в этом регионе WorldGuard
-     */
     private boolean isGriefAllowedInRegion(Block block) {
         var config = plugin.getConfigManager().getMainConfig();
         List<String> allowedRegions = config.getStringList("grief_detection.allowed_regions");
         
-        // Если список пуст - работаем везде (кроме защищённых регионов)
         if (allowedRegions.isEmpty()) {
             return !isInProtectedRegion(block);
         }
         
-        // Проверяем WorldGuard
         if (plugin.getServer().getPluginManager().getPlugin("WorldGuard") == null) {
-            return true; // WorldGuard не установлен - работаем везде
+            return true;
         }
         
         try {
@@ -52,25 +47,20 @@ public class GriefListener implements Listener {
             
             com.sk89q.worldguard.protection.ApplicableRegionSet set = query.getApplicableRegions(loc);
             
-            // Проверяем, есть ли среди регионов разрешённые
             for (com.sk89q.worldguard.protection.regions.ProtectedRegion region : set) {
                 String regionId = region.getId();
                 if (allowedRegions.contains(regionId)) {
-                    return true; // Нашли разрешённый регион
+                    return true;
                 }
             }
             
-            return false; // Нет разрешённых регионов
+            return false;
             
         } catch (Exception e) {
-            plugin.getLogger().warning("Failed to check WorldGuard region: " + e.getMessage());
-            return true; // При ошибке - разрешаем (на всякий случай)
+            return true;
         }
     }
     
-    /**
-     * Проверяет, находится ли блок в защищённом регионе (НЕ __global__)
-     */
     private boolean isInProtectedRegion(Block block) {
         if (plugin.getServer().getPluginManager().getPlugin("WorldGuard") == null) {
             return false;
@@ -102,7 +92,6 @@ public class GriefListener implements Listener {
         Player player = event.getPlayer();
         Block block = event.getBlock();
         
-        // Проверяем, разрешён ли антигриф в этом регионе
         if (!isGriefAllowedInRegion(block)) return;
         
         var config = plugin.getConfigManager().getMainConfig();
@@ -122,12 +111,15 @@ public class GriefListener implements Listener {
         
         hook.getBlockOwner(block.getLocation()).thenAccept(owner -> {
             if (owner == null || owner.equalsIgnoreCase(player.getName())) {
-                plugin.getLogger().info("Block broken by owner or unknown: " + player.getName());
                 return;
             }
             
             lastGriefTime.put(player.getUniqueId(), now);
-            plugin.getLogger().warning("Possible grief: " + player.getName() + " broke " + blockType + " owned by " + owner);
+            
+            if (plugin.getConfigManager().getMainConfig().getBoolean("console_logging.grief_detection", true)) {
+                plugin.getLogger().warning("Possible grief: " + player.getName() + " broke " + blockType + " owned by " + owner);
+            }
+            
             plugin.getDatabaseManager().logGriefAction(player, block);
             
             List<String> commands = player.hasPermission("cpa.staff") ?
@@ -161,7 +153,6 @@ public class GriefListener implements Listener {
         if (block == null) return;
         if (!isContainer(block.getType())) return;
         
-        // Проверяем, разрешён ли антигриф в этом регионе
         if (!isGriefAllowedInRegion(block)) return;
         
         Player player = event.getPlayer();
@@ -184,8 +175,11 @@ public class GriefListener implements Listener {
             if (owner != null && owner.equalsIgnoreCase(player.getName())) return;
             
             lastInteractTime.put(player.getUniqueId(), now);
-            plugin.getLogger().info("Player " + player.getName() + " interacted with " + 
-                blockType + " owned by " + (owner != null ? owner : "unknown"));
+            
+            if (plugin.getConfigManager().getMainConfig().getBoolean("console_logging.grief_detection", true)) {
+                plugin.getLogger().info("Player " + player.getName() + " interacted with " + 
+                    blockType + " owned by " + (owner != null ? owner : "unknown"));
+            }
         });
     }
     
