@@ -57,7 +57,11 @@ public class WarnManager {
                 ps.executeUpdate();
                 
                 if (plugin.getConfigManager().getMainConfig().getBoolean("console_logging.warnings", true)) {
-                    plugin.getLogger().info("Warning issued to " + targetName + " by " + staffName + ": " + reason);
+                    String msg = Lang.get("warn_issued_log")
+                        .replace("%target%", targetName)
+                        .replace("%staff%", staffName)
+                        .replace("%reason%", reason);
+                    plugin.getLogger().info(Lang.colorize(msg));
                 }
                 
             } catch (SQLException e) {
@@ -69,9 +73,7 @@ public class WarnManager {
         
         Player target = Bukkit.getPlayer(targetUuid);
         if (target != null && target.isOnline()) {
-            String prefix = Lang.getPrefix();
             String msg = Lang.get("warn_notify_target")
-                .replace("%prefix%", prefix)
                 .replace("%staff%", staffName)
                 .replace("%reason%", reason);
             target.sendMessage(Color.colorize(msg));
@@ -99,8 +101,10 @@ public class WarnManager {
                 if (updated > 0) {
                     warningsCache.remove(playerUuid);
                     if (plugin.getConfigManager().getMainConfig().getBoolean("console_logging.warnings", true)) {
-                        plugin.getLogger().info("Cleared " + updated + " warnings for " + 
-                            Bukkit.getOfflinePlayer(playerUuid).getName());
+                        String msg = Lang.get("warn_cleared_log")
+                            .replace("%amount%", String.valueOf(updated))
+                            .replace("%player%", Bukkit.getOfflinePlayer(playerUuid).getName());
+                        plugin.getLogger().info(Lang.colorize(msg));
                     }
                 }
             } catch (SQLException e) {
@@ -109,9 +113,6 @@ public class WarnManager {
         });
     }
     
-    /**
-     * Проверить и снять просроченные предупреждения
-     */
     public void checkExpiredWarnings() {
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
             String sql = "UPDATE cpa_warnings SET active = 0, cleared_at = ?, cleared_by = 'SYSTEM' WHERE active = 1 AND expires_at > 0 AND expires_at < ?";
@@ -129,7 +130,9 @@ public class WarnManager {
                     warningsCache.clear();
                     
                     if (plugin.getConfigManager().getMainConfig().getBoolean("console_logging.warnings", true)) {
-                        plugin.getLogger().info("Auto-cleared " + updated + " expired warnings");
+                        String msg = Lang.get("warn_auto_cleared_log")
+                            .replace("%amount%", String.valueOf(updated));
+                        plugin.getLogger().info(Lang.colorize(msg));
                     }
                 }
             } catch (SQLException e) {
