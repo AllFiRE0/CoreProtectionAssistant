@@ -32,6 +32,11 @@ public class GriefListener implements Listener {
         CoreProtectDatabaseHook hook = plugin.getCoreProtectDbHook();
         if (hook == null || !hook.isEnabled()) return;
         
+        // Проверяем, включена ли детекция
+        boolean enabled = plugin.getConfigManager().getMainConfig()
+            .getBoolean("grief_detection.enabled", false);
+        if (!enabled) return;
+        
         // Проверяем, отслеживается ли этот тип блока
         String blockType = block.getType().name();
         List<String> trackedBlocks = plugin.getConfigManager().getMainConfig()
@@ -46,7 +51,7 @@ public class GriefListener implements Listener {
             .getLong("grief_detection.min_time_between_actions", 5) * 1000;
         
         if (lastTime != null && (now - lastTime) < minTimeMs) {
-            return; // Слишком часто, пропускаем
+            return;
         }
         
         // Проверяем, взаимодействовал ли кто-то ещё с этим блоком
