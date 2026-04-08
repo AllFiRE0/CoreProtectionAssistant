@@ -360,6 +360,81 @@ public class DatabaseManager {
         });
     }
     
+    // ========== REPORTS STATISTICS ==========
+    
+    /**
+     * Получить общее количество жалоб на игрока
+     */
+    public CompletableFuture<Integer> getReportsAgainstPlayer(UUID uuid) {
+        return CompletableFuture.supplyAsync(() -> {
+            String sql = "SELECT COUNT(*) FROM cpa_reports WHERE target_uuid = ?";
+            
+            try (Connection conn = getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sql)) {
+                
+                ps.setString(1, uuid.toString());
+                
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getInt(1);
+                    }
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().severe("Failed to get reports against player: " + e.getMessage());
+            }
+            return 0;
+        });
+    }
+    
+    /**
+     * Получить количество жалоб на игрока по категории
+     */
+    public CompletableFuture<Integer> getReportsAgainstPlayerByCategory(UUID uuid, String category) {
+        return CompletableFuture.supplyAsync(() -> {
+            String sql = "SELECT COUNT(*) FROM cpa_reports WHERE target_uuid = ? AND category = ?";
+            
+            try (Connection conn = getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sql)) {
+                
+                ps.setString(1, uuid.toString());
+                ps.setString(2, category);
+                
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getInt(1);
+                    }
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().severe("Failed to get reports by category: " + e.getMessage());
+            }
+            return 0;
+        });
+    }
+    
+    /**
+     * Получить количество жалоб, отправленных игроком
+     */
+    public CompletableFuture<Integer> getReportsFiledByPlayer(UUID uuid) {
+        return CompletableFuture.supplyAsync(() -> {
+            String sql = "SELECT COUNT(*) FROM cpa_reports WHERE reporter_uuid = ?";
+            
+            try (Connection conn = getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sql)) {
+                
+                ps.setString(1, uuid.toString());
+                
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getInt(1);
+                    }
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().severe("Failed to get reports filed by player: " + e.getMessage());
+            }
+            return 0;
+        });
+    }
+    
     // ========== QUERIES ==========
     
     public CompletableFuture<Integer> getViolationCount(UUID uuid) {
@@ -403,6 +478,6 @@ public class DatabaseManager {
     }
     
     public CompletableFuture<Integer> getCommandCount(UUID uuid, String command) {
-    return getPlayerCommandCount(uuid, command);
+        return getPlayerCommandCount(uuid, command);
     }
 }
