@@ -8,7 +8,7 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
-import ru.allfire.coreprotectionassistant.utils.Color;
+import ru.allfire.coreprotectionassistant.config.Lang;
 
 import java.util.*;
 
@@ -62,12 +62,12 @@ public class CommandManager implements CommandExecutor, TabCompleter {
         SubCommand subCommand = subCommands.get(subCommandName);
         
         if (subCommand == null) {
-            sender.sendMessage(Color.colorize("&cUnknown command. Use /cpa help"));
+            Lang.send(sender, "unknown_command");
             return true;
         }
         
         if (!sender.hasPermission(subCommand.getPermission())) {
-            sender.sendMessage(Color.colorize("&cNo permission"));
+            Lang.send(sender, "no_permission");
             return true;
         }
         
@@ -76,7 +76,7 @@ public class CommandManager implements CommandExecutor, TabCompleter {
         try {
             return subCommand.execute(sender, subArgs);
         } catch (Exception e) {
-            sender.sendMessage(Color.colorize("&cError executing command"));
+            Lang.send(sender, "error_executing");
             plugin.getLogger().severe("Error executing command " + subCommandName + ": " + e.getMessage());
             return true;
         }
@@ -112,12 +112,19 @@ public class CommandManager implements CommandExecutor, TabCompleter {
     }
     
     private void sendHelp(CommandSender sender) {
-        sender.sendMessage(Color.colorize("&8&m-----&r &c&lCoreProtectionAssistant &8&m-----"));
+        String header = Lang.get("help_header");
+        if (!header.isEmpty()) {
+            sender.sendMessage(Lang.colorize(header));
+        }
         
         for (SubCommand cmd : subCommands.values()) {
             if (cmd.getName().equals(cmd.getName().toLowerCase()) && 
                 sender.hasPermission(cmd.getPermission())) {
-                sender.sendMessage(Color.colorize("&f/cpa " + cmd.getName() + " &7- " + cmd.getDescription()));
+                String helpLine = Lang.get("help_" + cmd.getName());
+                if (helpLine.isEmpty()) {
+                    helpLine = "&f/cpa " + cmd.getName() + " &7- " + cmd.getDescription();
+                }
+                sender.sendMessage(Lang.colorize(helpLine));
             }
         }
     }

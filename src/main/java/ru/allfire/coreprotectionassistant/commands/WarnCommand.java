@@ -5,9 +5,11 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
-import ru.allfire.coreprotectionassistant.utils.Color;
+import ru.allfire.coreprotectionassistant.config.Lang;
 
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -47,13 +49,12 @@ public class WarnCommand implements CommandManager.SubCommand {
     @Override
     public boolean execute(CommandSender sender, String[] args) {
         if (args.length < 1) {
-            sender.sendMessage(Color.colorize("&cUsage: " + getUsage()));
-            sender.sendMessage(Color.colorize("&cUsage: /cpa warn clear <player> <amount>"));
-            sender.sendMessage(Color.colorize("&cUsage: /cpa warn list <player>"));
+            Lang.send(sender, "warn_usage");
+            sender.sendMessage(Lang.colorize("&cUsage: /cpa warn clear <player> <amount>"));
+            sender.sendMessage(Lang.colorize("&cUsage: /cpa warn list <player>"));
             return true;
         }
         
-        // Подкоманды
         if (args[0].equalsIgnoreCase("clear")) {
             return handleClear(sender, Arrays.copyOfRange(args, 1, args.length));
         }
@@ -62,7 +63,6 @@ public class WarnCommand implements CommandManager.SubCommand {
             return handleList(sender, Arrays.copyOfRange(args, 1, args.length));
         }
         
-        // Выдача предупреждения
         return handleWarn(sender, args);
     }
     
@@ -71,11 +71,7 @@ public class WarnCommand implements CommandManager.SubCommand {
         OfflinePlayer offlineTarget = Bukkit.getOfflinePlayer(targetName);
         
         if (!offlineTarget.hasPlayedBefore() && !offlineTarget.isOnline()) {
-            sender.sendMessage(Color.colorize(
-                plugin.getConfigManager().getLangConfig().getString("messages.player_not_found",
-                    "%prefix% &cPlayer not found")
-                    .replace("%player%", targetName)
-            ));
+            Lang.send(sender, "player_not_found", "player", targetName);
             return true;
         }
         
@@ -97,31 +93,22 @@ public class WarnCommand implements CommandManager.SubCommand {
             staffUuid,
             staffName,
             reason,
-            0 // Бессрочное предупреждение
+            0
         );
         
-        String successMsg = plugin.getConfigManager().getLangConfig()
-            .getString("messages.warn_success",
-                "%prefix% &aWarning issued to &f%player%&a. &7(%reason%)")
-            .replace("%player%", offlineTarget.getName())
-            .replace("%reason%", reason);
-        
-        sender.sendMessage(Color.colorize(successMsg));
+        Lang.send(sender, "warn_success", "player", offlineTarget.getName(), "reason", reason);
         
         return true;
     }
     
     private boolean handleClear(CommandSender sender, String[] args) {
         if (!sender.hasPermission("cpa.warn.clear")) {
-            sender.sendMessage(Color.colorize(
-                plugin.getConfigManager().getLangConfig().getString("messages.no_permission",
-                    "%prefix% &cNo permission")
-            ));
+            Lang.send(sender, "no_permission");
             return true;
         }
         
         if (args.length < 2) {
-            sender.sendMessage(Color.colorize("&cUsage: /cpa warn clear <player> <amount>"));
+            Lang.send(sender, "warn_clear_usage");
             return true;
         }
         
@@ -129,11 +116,7 @@ public class WarnCommand implements CommandManager.SubCommand {
         OfflinePlayer offlineTarget = Bukkit.getOfflinePlayer(targetName);
         
         if (!offlineTarget.hasPlayedBefore() && !offlineTarget.isOnline()) {
-            sender.sendMessage(Color.colorize(
-                plugin.getConfigManager().getLangConfig().getString("messages.player_not_found",
-                    "%prefix% &cPlayer not found")
-                    .replace("%player%", targetName)
-            ));
+            Lang.send(sender, "player_not_found", "player", targetName);
             return true;
         }
         
@@ -142,7 +125,7 @@ public class WarnCommand implements CommandManager.SubCommand {
             amount = Integer.parseInt(args[1]);
             if (amount < 1) amount = 1;
         } catch (NumberFormatException e) {
-            sender.sendMessage(Color.colorize("&cInvalid amount"));
+            Lang.send(sender, "warn_invalid_amount");
             return true;
         }
         
@@ -150,20 +133,14 @@ public class WarnCommand implements CommandManager.SubCommand {
         
         plugin.getWarnManager().clearWarnings(offlineTarget.getUniqueId(), amount, clearedBy);
         
-        String successMsg = plugin.getConfigManager().getLangConfig()
-            .getString("messages.warn_clear_success",
-                "%prefix% &aCleared &f%amount% &awarnings from &f%player%&a.")
-            .replace("%amount%", String.valueOf(amount))
-            .replace("%player%", offlineTarget.getName());
-        
-        sender.sendMessage(Color.colorize(successMsg));
+        Lang.send(sender, "warn_clear_success", "amount", String.valueOf(amount), "player", offlineTarget.getName());
         
         return true;
     }
     
     private boolean handleList(CommandSender sender, String[] args) {
         if (args.length < 1) {
-            sender.sendMessage(Color.colorize("&cUsage: /cpa warn list <player>"));
+            Lang.send(sender, "warn_list_usage");
             return true;
         }
         
@@ -171,27 +148,26 @@ public class WarnCommand implements CommandManager.SubCommand {
         OfflinePlayer offlineTarget = Bukkit.getOfflinePlayer(targetName);
         
         if (!offlineTarget.hasPlayedBefore() && !offlineTarget.isOnline()) {
-            sender.sendMessage(Color.colorize(
-                plugin.getConfigManager().getLangConfig().getString("messages.player_not_found",
-                    "%prefix% &cPlayer not found")
-                    .replace("%player%", targetName)
-            ));
+            Lang.send(sender, "player_not_found", "player", targetName);
             return true;
         }
         
         plugin.getWarnManager().getWarnings(offlineTarget.getUniqueId()).thenAccept(warnings -> {
             if (warnings.isEmpty()) {
-                sender.sendMessage(Color.colorize("&7No active warnings for &f" + offlineTarget.getName()));
+                Lang.send(sender, "warn_no_warnings", "player", offlineTarget.getName());
                 return;
             }
             
-            sender.sendMessage(Color.colorize("&8&m-----&r &cWarnings: &f" + offlineTarget.getName() + " &8&m-----"));
+            String header = Lang.get("warn_list_header").replace("%player%", offlineTarget.getName());
+            if (!header.isEmpty()) {
+                sender.sendMessage(Lang.colorize(header));
+            }
             
             for (var warn : warnings) {
-                String date = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm")
-                    .format(new java.util.Date(warn.getCreatedAt()));
+                String date = new SimpleDateFormat("yyyy-MM-dd HH:mm")
+                    .format(new Date(warn.getCreatedAt()));
                 
-                sender.sendMessage(Color.colorize(
+                sender.sendMessage(Lang.colorize(
                     "&7[&f" + date + "&7] &c" + warn.getStaffName() + " &7→ &f" + warn.getReason()
                 ));
             }
