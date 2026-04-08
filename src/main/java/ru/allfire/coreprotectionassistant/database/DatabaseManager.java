@@ -403,6 +403,6 @@ public class DatabaseManager {
     }
     
     public CompletableFuture<Integer> getCommandCount(UUID uuid, String command) {
-        return getPlayerCommandCount(uuid, command);
+    return getPlayerCommandCount(uuid, command);
     }
 }
