@@ -1,5 +1,12 @@
 package ru.allfire.coreprotectionassistant.listeners;
 
+import com.sk89q.worldedit.bukkit.BukkitAdapter;
+import com.sk89q.worldguard.LocalPlayer;
+import com.sk89q.worldguard.WorldGuard;
+import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
+import com.sk89q.worldguard.protection.ApplicableRegionSet;
+import com.sk89q.worldguard.protection.regions.RegionContainer;
+import com.sk89q.worldguard.protection.regions.RegionQuery;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -27,10 +34,36 @@ public class GriefListener implements Listener {
         this.plugin = plugin;
     }
     
+    /**
+     * Проверяет, находится ли блок в регионе WorldGuard
+     */
+    private boolean isInWorldGuardRegion(Block block) {
+        if (plugin.getServer().getPluginManager().getPlugin("WorldGuard") == null) {
+            return false; // WorldGuard не установлен
+        }
+        
+        try {
+            RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
+            RegionQuery query = container.createQuery();
+            com.sk89q.worldedit.util.Location loc = BukkitAdapter.adapt(block.getLocation());
+            
+            ApplicableRegionSet set = query.getApplicableRegions(loc);
+            return set.size() > 0; // Возвращаем true, если блок в регионе
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to check WorldGuard region: " + e.getMessage());
+            return false;
+        }
+    }
+    
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
         Block block = event.getBlock();
+        
+        // Если блок в регионе WorldGuard - пропускаем
+        if (isInWorldGuardRegion(block)) {
+            return;
+        }
         
         var config = plugin.getConfigManager().getMainConfig();
         if (!config.getBoolean("grief_detection.enabled", false)) return;
@@ -47,15 +80,12 @@ public class GriefListener implements Listener {
         var hook = plugin.getCoreProtectHook();
         if (hook == null || !hook.isEnabled()) return;
         
-        // Получаем полную историю блока и находим владельца (кто поставил)
         hook.getBlockOwner(block.getLocation()).thenAccept(owner -> {
-            // Если владелец не найден или это сам игрок — не гриф
             if (owner == null || owner.equalsIgnoreCase(player.getName())) {
                 plugin.getLogger().info("Block broken by owner or unknown: " + player.getName());
                 return;
             }
             
-            // Проверяем, взаимодействовал ли кто-то ЕЩЁ кроме владельца и текущего игрока
             hook.wasModifiedByOther(block.getLocation(), player.getName(), owner).thenAccept(wasModified -> {
                 if (wasModified) {
                     lastGriefTime.put(player.getUniqueId(), now);
@@ -95,6 +125,11 @@ public class GriefListener implements Listener {
         if (block == null) return;
         if (!isContainer(block.getType())) return;
         
+        // Если блок в регионе WorldGuard - пропускаем
+        if (isInWorldGuardRegion(block)) {
+            return;
+        }
+        
         Player player = event.getPlayer();
         var config = plugin.getConfigManager().getMainConfig();
         
@@ -111,14 +146,11 @@ public class GriefListener implements Listener {
         var hook = plugin.getCoreProtectHook();
         if (hook == null || !hook.isEnabled()) return;
         
-        // Проверяем, не владелец ли это
         hook.getBlockOwner(block.getLocation()).thenAccept(owner -> {
-            // Если это владелец — не логируем
             if (owner != null && owner.equalsIgnoreCase(player.getName())) {
                 return;
             }
             
-            // Проверяем, взаимодействовал ли кто-то ещё
             hook.wasModifiedByOther(block.getLocation(), player.getName(), owner).thenAccept(wasModified -> {
                 if (wasModified) {
                     lastInteractTime.put(player.getUniqueId(), now);
