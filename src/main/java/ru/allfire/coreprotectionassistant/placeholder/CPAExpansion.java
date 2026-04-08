@@ -1,15 +1,12 @@
 package ru.allfire.coreprotectionassistant.placeholder;
 
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
-import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
-import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
 import ru.allfire.coreprotectionassistant.utils.TimeUtil;
 
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class CPAExpansion extends PlaceholderExpansion {
@@ -43,18 +40,13 @@ public class CPAExpansion extends PlaceholderExpansion {
     
     @Override
     public String onRequest(OfflinePlayer offlinePlayer, @NotNull String params) {
-        if (offlinePlayer == null) {
-            return "";
-        }
+        if (offlinePlayer == null) return "";
         
         UUID uuid = offlinePlayer.getUniqueId();
         
-        // Кэшируем на 1 секунду для производительности
         String cacheKey = uuid + ":" + params;
         String cached = cachedValues.get(cacheKey);
-        if (cached != null) {
-            return cached;
-        }
+        if (cached != null) return cached;
         
         String result = processPlaceholder(uuid, params);
         
@@ -82,48 +74,26 @@ public class CPAExpansion extends PlaceholderExpansion {
         var hook = plugin.getCoreProtectHook();
         
         return switch (param) {
-            case "blocks_broken" -> String.valueOf(
-                hook.getBlocksBroken(uuid, 0).join()
-            );
-            case "blocks_placed" -> String.valueOf(
-                hook.getBlocksPlaced(uuid, 0).join()
-            );
-            case "chests_opened" -> String.valueOf(
-                hook.getChestsOpened(uuid, 0).join()
-            );
-            case "commands_count" -> String.valueOf(
-                hook.getCommandsUsed(uuid, 0).join()
-            );
-            case "deaths" -> String.valueOf(
-                hook.getDeaths(uuid, 0).join()
-            );
-            case "kills" -> String.valueOf(
-                hook.getKills(uuid, 0).join()
-            );
-            case "first_seen" -> TimeUtil.formatDateTime(
-                hook.getFirstSeen(uuid).join()
-            );
-            case "last_seen" -> TimeUtil.formatDateTime(
-                hook.getLastSeen(uuid).join()
-            );
-            case "warnings_count" -> String.valueOf(
-                plugin.getWarnManager().getActiveWarningsCount(uuid).join()
-            );
-            case "violations_count" -> String.valueOf(
-                plugin.getDatabaseManager().getViolationCount(uuid).join()
-            );
+            case "blocks_broken" -> String.valueOf(hook.getBlocksBroken(uuid, 0).join());
+            case "blocks_placed" -> String.valueOf(hook.getBlocksPlaced(uuid, 0).join());
+            case "chests_opened" -> String.valueOf(hook.getChestsOpened(uuid, 0).join());
+            case "commands_count" -> String.valueOf(hook.getCommandsUsed(uuid, 0).join());
+            case "deaths" -> String.valueOf(hook.getDeaths(uuid, 0).join());
+            case "kills" -> String.valueOf(hook.getKills(uuid, 0).join());
+            case "first_seen" -> TimeUtil.formatDateTime(hook.getFirstSeen(uuid).join());
+            case "last_seen" -> TimeUtil.formatDateTime(hook.getLastSeen(uuid).join());
+            case "warnings_count" -> String.valueOf(plugin.getWarnManager().getActiveWarningsCount(uuid).join());
+            case "violations_count" -> String.valueOf(plugin.getDatabaseManager().getViolationCount(uuid).join());
+            case "apologies_count" -> String.valueOf(plugin.getDatabaseManager().getApologiesCount(uuid).join());
+            case "violations_apologies_ratio" -> plugin.getDatabaseManager().getViolationsApologiesRatio(uuid).join();
             case "time_since_last_violation" -> {
                 long lastTime = plugin.getDatabaseManager().getLastViolationTime(uuid).join();
-                yield lastTime > 0 ? 
-                    String.valueOf((System.currentTimeMillis() - lastTime) / 1000) : 
-                    "0";
+                yield lastTime > 0 ? String.valueOf((System.currentTimeMillis() - lastTime) / 1000) : "0";
             }
             default -> {
                 if (param.startsWith("cmd_")) {
                     String command = param.substring(4);
-                    yield String.valueOf(
-                        plugin.getDatabaseManager().getCommandCount(uuid, command).join()
-                    );
+                    yield String.valueOf(plugin.getDatabaseManager().getCommandCount(uuid, command).join());
                 }
                 yield "";
             }
@@ -140,18 +110,14 @@ public class CPAExpansion extends PlaceholderExpansion {
             case "kicks_count" -> String.valueOf(stats.kicksCount);
             case "gives_count" -> String.valueOf(stats.givesCount);
             case "abuse_score" -> String.valueOf(abuseScore);
-            case "warnings_count" -> String.valueOf(
-                plugin.getWarnManager().getActiveWarningsCount(uuid).join()
-            );
+            case "warnings_count" -> String.valueOf(plugin.getWarnManager().getActiveWarningsCount(uuid).join());
             default -> "";
         };
     }
     
     private String processWarningsPlaceholder(UUID uuid, String param) {
         return switch (param) {
-            case "count" -> String.valueOf(
-                plugin.getWarnManager().getActiveWarningsCount(uuid).join()
-            );
+            case "count" -> String.valueOf(plugin.getWarnManager().getActiveWarningsCount(uuid).join());
             default -> "";
         };
     }
