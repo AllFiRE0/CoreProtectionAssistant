@@ -18,11 +18,13 @@ public class ConfigManager {
     private FileConfiguration mainConfig;
     private FileConfiguration langConfig;
     private FileConfiguration chatRulesConfig;
+    private FileConfiguration chatBotConfig;
     private FileConfiguration reportsConfig;
     
     private File mainConfigFile;
     private File langConfigFile;
     private File chatRulesFile;
+    private File chatBotFile;
     private File reportsFile;
     
     public ConfigManager(CoreProtectionAssistant plugin) {
@@ -89,5 +91,23 @@ public class ConfigManager {
         } catch (IOException e) {
             plugin.getLogger().severe("Could not save config.yml: " + e.getMessage());
         }
+    }
+
+    public FileConfiguration getChatBotConfig() {
+    if (chatBotConfig == null) {
+        chatBotFile = new File(plugin.getDataFolder(), "chatbot.yml");
+        if (!chatBotFile.exists()) {
+            plugin.saveResource("chatbot.yml", false);
+        }
+        chatBotConfig = YamlConfiguration.loadConfiguration(chatBotFile);
+    }
+    return chatBotConfig;
+    }
+
+    public void reloadChatBotConfig() {
+    if (chatBotFile == null) {
+        chatBotFile = new File(plugin.getDataFolder(), "chatbot.yml");
+    }
+    chatBotConfig = YamlConfiguration.loadConfiguration(chatBotFile);
     }
 }
