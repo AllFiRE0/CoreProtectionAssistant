@@ -131,6 +131,7 @@ grief_detection:
     - "asConsole! cpa warn %player_name% Staff griefing -t:1h"
   abuse_weight: 10
   min_time_between_actions: 5
+```
 
 ---
 
