@@ -3,6 +3,7 @@ package ru.allfire.coreprotectionassistant.database;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import lombok.Getter;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
 import ru.allfire.coreprotectionassistant.models.CommandLog;
@@ -259,6 +260,28 @@ public class DatabaseManager {
             if (violations == 0) return "0%";
             int ratio = (apologies * 100) / violations;
             return Math.min(ratio, 100) + "%";
+        });
+    }
+    
+    // ========== GRIEF ACTIONS ==========
+    
+    public CompletableFuture<Void> logGriefAction(Player player, Block block) {
+        return CompletableFuture.runAsync(() -> {
+            String sql = "INSERT INTO cpa_grief_actions (player_uuid, player_name, world, x, y, z, block_type, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            try (Connection conn = getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, player.getUniqueId().toString());
+                ps.setString(2, player.getName());
+                ps.setString(3, block.getWorld().getName());
+                ps.setInt(4, block.getX());
+                ps.setInt(5, block.getY());
+                ps.setInt(6, block.getZ());
+                ps.setString(7, block.getType().name());
+                ps.setLong(8, System.currentTimeMillis());
+                ps.executeUpdate();
+            } catch (SQLException e) {
+                plugin.getLogger().severe("Failed to log grief action: " + e.getMessage());
+            }
         });
     }
     
