@@ -102,7 +102,7 @@ rules:
     #   title! - отправить заголовок
     #   actionbar! - отправить в action bar
     answer_cmds:
-      - "message! &a&lБОТ &7» &fПривет, %player_name%!"
+      #- "message! &a&lБОТ &7» &fПривет, %player_name%!"
       - "sound! ENTITY_PLAYER_LEVELUP 1.0 1.5"
     # Случайные ответы (выбирается случайный из списка ВМЕСТО answer_cmds)
     # Если список пуст - всегда используется answer_cmds
@@ -110,6 +110,7 @@ rules:
     answer_cmds_random:
       - "message! &a&lБОТ &7» &fЗдарова, %player_name%!"
       - "message! &a&lБОТ &7» &fПриветствую, %player_name%!"
+      - "message! &a&lБОТ &7» &fПривет! Давно не виделись"
 
   # ------------------------------------------
   # Помощь
