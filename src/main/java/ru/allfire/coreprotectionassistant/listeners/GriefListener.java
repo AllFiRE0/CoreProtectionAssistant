@@ -1,12 +1,5 @@
 package ru.allfire.coreprotectionassistant.listeners;
 
-import com.sk89q.worldedit.bukkit.BukkitAdapter;
-import com.sk89q.worldguard.LocalPlayer;
-import com.sk89q.worldguard.WorldGuard;
-import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
-import com.sk89q.worldguard.protection.ApplicableRegionSet;
-import com.sk89q.worldguard.protection.regions.RegionContainer;
-import com.sk89q.worldguard.protection.regions.RegionQuery;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -35,22 +28,71 @@ public class GriefListener implements Listener {
     }
     
     /**
-     * Проверяет, находится ли блок в регионе WorldGuard
+     * Проверяет, разрешён ли антигриф в этом регионе WorldGuard
      */
-    private boolean isInWorldGuardRegion(Block block) {
+    private boolean isGriefAllowedInRegion(Block block) {
+        var config = plugin.getConfigManager().getMainConfig();
+        List<String> allowedRegions = config.getStringList("grief_detection.allowed_regions");
+        
+        // Если список пуст - работаем везде (кроме защищённых регионов)
+        if (allowedRegions.isEmpty()) {
+            return !isInProtectedRegion(block);
+        }
+        
+        // Проверяем WorldGuard
         if (plugin.getServer().getPluginManager().getPlugin("WorldGuard") == null) {
-            return false; // WorldGuard не установлен
+            return true; // WorldGuard не установлен - работаем везде
         }
         
         try {
-            RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
-            RegionQuery query = container.createQuery();
-            com.sk89q.worldedit.util.Location loc = BukkitAdapter.adapt(block.getLocation());
+            com.sk89q.worldguard.WorldGuard wg = com.sk89q.worldguard.WorldGuard.getInstance();
+            com.sk89q.worldguard.protection.regions.RegionContainer container = wg.getPlatform().getRegionContainer();
+            com.sk89q.worldguard.protection.regions.RegionQuery query = container.createQuery();
+            com.sk89q.worldedit.util.Location loc = com.sk89q.worldedit.bukkit.BukkitAdapter.adapt(block.getLocation());
             
-            ApplicableRegionSet set = query.getApplicableRegions(loc);
-            return set.size() > 0; // Возвращаем true, если блок в регионе
+            com.sk89q.worldguard.protection.ApplicableRegionSet set = query.getApplicableRegions(loc);
+            
+            // Проверяем, есть ли среди регионов разрешённые
+            for (com.sk89q.worldguard.protection.regions.ProtectedRegion region : set) {
+                String regionId = region.getId();
+                if (allowedRegions.contains(regionId)) {
+                    return true; // Нашли разрешённый регион
+                }
+            }
+            
+            return false; // Нет разрешённых регионов
+            
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to check WorldGuard region: " + e.getMessage());
+            return true; // При ошибке - разрешаем (на всякий случай)
+        }
+    }
+    
+    /**
+     * Проверяет, находится ли блок в защищённом регионе (НЕ __global__)
+     */
+    private boolean isInProtectedRegion(Block block) {
+        if (plugin.getServer().getPluginManager().getPlugin("WorldGuard") == null) {
+            return false;
+        }
+        
+        try {
+            com.sk89q.worldguard.WorldGuard wg = com.sk89q.worldguard.WorldGuard.getInstance();
+            com.sk89q.worldguard.protection.regions.RegionContainer container = wg.getPlatform().getRegionContainer();
+            com.sk89q.worldguard.protection.regions.RegionQuery query = container.createQuery();
+            com.sk89q.worldedit.util.Location loc = com.sk89q.worldedit.bukkit.BukkitAdapter.adapt(block.getLocation());
+            
+            com.sk89q.worldguard.protection.ApplicableRegionSet set = query.getApplicableRegions(loc);
+            
+            for (com.sk89q.worldguard.protection.regions.ProtectedRegion region : set) {
+                String regionId = region.getId();
+                if (!regionId.equals("__global__") && !regionId.equals("global")) {
+                    return true;
+                }
+            }
+            
+            return false;
+        } catch (Exception e) {
             return false;
         }
     }
@@ -60,10 +102,8 @@ public class GriefListener implements Listener {
         Player player = event.getPlayer();
         Block block = event.getBlock();
         
-        // Если блок в регионе WorldGuard - пропускаем
-        if (isInWorldGuardRegion(block)) {
-            return;
-        }
+        // Проверяем, разрешён ли антигриф в этом регионе
+        if (!isGriefAllowedInRegion(block)) return;
         
         var config = plugin.getConfigManager().getMainConfig();
         if (!config.getBoolean("grief_detection.enabled", false)) return;
@@ -86,34 +126,30 @@ public class GriefListener implements Listener {
                 return;
             }
             
-            hook.wasModifiedByOther(block.getLocation(), player.getName(), owner).thenAccept(wasModified -> {
-                if (wasModified) {
-                    lastGriefTime.put(player.getUniqueId(), now);
-                    plugin.getLogger().warning("Possible grief: " + player.getName() + " broke " + blockType + " owned by " + owner);
-                    plugin.getDatabaseManager().logGriefAction(player, block);
-                    
-                    List<String> commands = player.hasPermission("cpa.staff") ?
-                        config.getStringList("grief_detection.staff_grief_commands") :
-                        config.getStringList("grief_detection.grief_commands");
-                    
-                    for (String cmd : commands) {
-                        String processed = cmd
-                            .replace("%player_name%", player.getName())
-                            .replace("%world%", block.getWorld().getName())
-                            .replace("%x%", String.valueOf(block.getX()))
-                            .replace("%y%", String.valueOf(block.getY()))
-                            .replace("%z%", String.valueOf(block.getZ()))
-                            .replace("%block%", blockType)
-                            .replace("%owner%", owner);
-                        CommandExecutor.execute(plugin, player, null, processed);
-                    }
-                    
-                    if (player.hasPermission("cpa.staff")) {
-                        plugin.getAbuseScoreManager().addScore(player.getUniqueId(), "griefing", 
-                            config.getInt("grief_detection.abuse_weight", 10));
-                    }
-                }
-            });
+            lastGriefTime.put(player.getUniqueId(), now);
+            plugin.getLogger().warning("Possible grief: " + player.getName() + " broke " + blockType + " owned by " + owner);
+            plugin.getDatabaseManager().logGriefAction(player, block);
+            
+            List<String> commands = player.hasPermission("cpa.staff") ?
+                config.getStringList("grief_detection.staff_grief_commands") :
+                config.getStringList("grief_detection.grief_commands");
+            
+            for (String cmd : commands) {
+                String processed = cmd
+                    .replace("%player_name%", player.getName())
+                    .replace("%world%", block.getWorld().getName())
+                    .replace("%x%", String.valueOf(block.getX()))
+                    .replace("%y%", String.valueOf(block.getY()))
+                    .replace("%z%", String.valueOf(block.getZ()))
+                    .replace("%block%", blockType)
+                    .replace("%owner%", owner);
+                CommandExecutor.execute(plugin, player, null, processed);
+            }
+            
+            if (player.hasPermission("cpa.staff")) {
+                plugin.getAbuseScoreManager().addScore(player.getUniqueId(), "griefing", 
+                    config.getInt("grief_detection.abuse_weight", 10));
+            }
         });
     }
     
@@ -125,10 +161,8 @@ public class GriefListener implements Listener {
         if (block == null) return;
         if (!isContainer(block.getType())) return;
         
-        // Если блок в регионе WorldGuard - пропускаем
-        if (isInWorldGuardRegion(block)) {
-            return;
-        }
+        // Проверяем, разрешён ли антигриф в этом регионе
+        if (!isGriefAllowedInRegion(block)) return;
         
         Player player = event.getPlayer();
         var config = plugin.getConfigManager().getMainConfig();
@@ -147,17 +181,11 @@ public class GriefListener implements Listener {
         if (hook == null || !hook.isEnabled()) return;
         
         hook.getBlockOwner(block.getLocation()).thenAccept(owner -> {
-            if (owner != null && owner.equalsIgnoreCase(player.getName())) {
-                return;
-            }
+            if (owner != null && owner.equalsIgnoreCase(player.getName())) return;
             
-            hook.wasModifiedByOther(block.getLocation(), player.getName(), owner).thenAccept(wasModified -> {
-                if (wasModified) {
-                    lastInteractTime.put(player.getUniqueId(), now);
-                    plugin.getLogger().info("Player " + player.getName() + " interacted with " + 
-                        blockType + " owned by " + (owner != null ? owner : "unknown"));
-                }
-            });
+            lastInteractTime.put(player.getUniqueId(), now);
+            plugin.getLogger().info("Player " + player.getName() + " interacted with " + 
+                blockType + " owned by " + (owner != null ? owner : "unknown"));
         });
     }
     
