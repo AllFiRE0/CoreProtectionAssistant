@@ -56,6 +56,7 @@ tracked_moder_commands:
   - "fly"         # Режим полёта (нечестное преимущество)
   - "god"         # Режим бога (неуязвимость)
   - "heal"        # Лечение (себя или других)
+  - "gm"
 
 # ============================================
 # ОТСЛЕЖИВАЕМЫЕ КОМАНДЫ ИГРОКОВ
@@ -166,7 +167,7 @@ staff_warnings:
     # %score% - текущий abuse_score
     commands:
       # Забрать 100 игровой валюты (требуется CMI)
-      - "asConsole! cmi money take %player_name% 100"
+      #- "asConsole! cmi money take %player_name% 100"
       # Отправить личное сообщение
       - "message! &c&l⚠ &7Ваш рейтинг злоупотреблений превысил норму!"
   # Уровень 2: Администратор (строгое предупреждение)
@@ -175,7 +176,7 @@ staff_warnings:
     threshold: 50  # 50-69 = уровень admin
     commands:
       # Забрать 500 валюты
-      - "asConsole! cmi money take %player_name% 500"
+      #- "asConsole! cmi money take %player_name% 500"
       # Оповестить ВЕСЬ сервер
       - "broadcast! &c&l[CPA] &f%player_name% &7получил строгое предупреждение!"
 
@@ -324,7 +325,7 @@ grief_detection:
   #   %block% - тип блока
   grief_commands:
     # Выдать варн на 20 минут, silent-режим (-s = не писать в чат)
-    - "asConsole! cpa warn %player_name% Griefing detected -t:20m -s"
+    - "asConsole! cpa warn %player_name% Гриферство в %world% %x% %y% %z% -t:20m -s"
     # Записать в лог
     - "log! Possible grief: %player_name% broke %block% at %world% %x% %y% %z%"
   # Команды, выполняемые если гриферит ПЕРСОНАЛ (игрок с правом cpa.staff)
@@ -332,10 +333,10 @@ grief_detection:
     # Выдать варн на 1 час
     - "asConsole! cpa warn %player_name% Staff griefing detected -t:1h"
     # Оповестить всех
-    - "broadcast! &c[CPA] Staff member %player_name% suspected of griefing!"
+    #- "broadcast! &c[CPA] Staff member %player_name% suspected of griefing!"
   # Вес для abuse_score (добавляется персоналу при грифе)
   abuse_weight: 10
   # Минимальное время между срабатываниями для одного игрока (в секундах)
   # Защита от спама - если игрок ломает много блоков подряд,
   # детекция сработает только раз в указанный интервал
-  min_time_between_actions: 5
+  min_time_between_actions: 60
