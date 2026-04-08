@@ -109,6 +109,35 @@ public class WarnManager {
         });
     }
     
+    /**
+     * Проверить и снять просроченные предупреждения
+     */
+    public void checkExpiredWarnings() {
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            String sql = "UPDATE cpa_warnings SET active = 0, cleared_at = ?, cleared_by = 'SYSTEM' WHERE active = 1 AND expires_at > 0 AND expires_at < ?";
+            
+            try (Connection conn = plugin.getDatabaseManager().getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sql)) {
+                
+                long now = System.currentTimeMillis();
+                ps.setLong(1, now);
+                ps.setLong(2, now);
+                
+                int updated = ps.executeUpdate();
+                
+                if (updated > 0) {
+                    warningsCache.clear();
+                    
+                    if (plugin.getConfigManager().getMainConfig().getBoolean("console_logging.warnings", true)) {
+                        plugin.getLogger().info("Auto-cleared " + updated + " expired warnings");
+                    }
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().severe("Failed to clear expired warnings: " + e.getMessage());
+            }
+        });
+    }
+    
     public CompletableFuture<Integer> getActiveWarningsCount(UUID playerUuid) {
         return CompletableFuture.supplyAsync(() -> {
             String sql = "SELECT COUNT(*) FROM cpa_warnings WHERE player_uuid = ? AND active = 1";
