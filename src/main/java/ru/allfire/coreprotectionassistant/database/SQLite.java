@@ -28,20 +28,30 @@ public class SQLite implements IDatabase {
             
             File dbFile = new File(dataFolder, "database.db");
             
-            HikariConfig config = new HikariConfig();
-            config.setJdbcUrl("jdbc:sqlite:" + dbFile.getAbsolutePath());
-            config.setDriverClassName("org.sqlite.JDBC");
-            config.setMaximumPoolSize(1);
-            config.setConnectionTimeout(5000);
-            config.setIdleTimeout(300000);
-            config.setMaxLifetime(600000);
-            config.setPoolName("CPA-SQLite");
+            var config = plugin.getConfigManager().getMainConfig();
             
-            config.addDataSourceProperty("journal_mode", "WAL");
-            config.addDataSourceProperty("busy_timeout", "5000");
-            config.addDataSourceProperty("synchronous", "NORMAL");
+            HikariConfig hikariConfig = new HikariConfig();
+            hikariConfig.setJdbcUrl("jdbc:sqlite:" + dbFile.getAbsolutePath());
+            hikariConfig.setDriverClassName("org.sqlite.JDBC");
+            hikariConfig.setMaximumPoolSize(1);
             
-            dataSource = new HikariDataSource(config);
+            // Настройки из конфига
+            hikariConfig.setConnectionTimeout(config.getLong("database.sqlite.connection-timeout", 30000));
+            hikariConfig.setIdleTimeout(config.getLong("database.sqlite.idle-timeout", 600000));
+            hikariConfig.setMaxLifetime(config.getLong("database.sqlite.max-lifetime", 1800000));
+            hikariConfig.setLeakDetectionThreshold(60000);
+            
+            hikariConfig.setPoolName("CPA-SQLite");
+            
+            // Дополнительные параметры SQLite
+            hikariConfig.addDataSourceProperty("busy_timeout", 
+                config.getString("database.sqlite.busy-timeout", "30000"));
+            hikariConfig.addDataSourceProperty("journal_mode", 
+                config.getString("database.sqlite.journal-mode", "WAL"));
+            hikariConfig.addDataSourceProperty("synchronous", 
+                config.getString("database.sqlite.synchronous", "NORMAL"));
+            
+            dataSource = new HikariDataSource(hikariConfig);
             
             try (Connection conn = dataSource.getConnection()) {
                 createTables(conn);
