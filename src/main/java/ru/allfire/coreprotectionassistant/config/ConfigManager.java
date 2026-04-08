@@ -7,7 +7,6 @@ import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 
@@ -18,14 +17,14 @@ public class ConfigManager {
     private FileConfiguration mainConfig;
     private FileConfiguration langConfig;
     private FileConfiguration chatRulesConfig;
-    private FileConfiguration chatBotConfig;
     private FileConfiguration reportsConfig;
+    private FileConfiguration chatBotConfig;
     
     private File mainConfigFile;
     private File langConfigFile;
     private File chatRulesFile;
-    private File chatBotFile;
     private File reportsFile;
+    private File chatBotFile;
     
     public ConfigManager(CoreProtectionAssistant plugin) {
         this.plugin = plugin;
@@ -36,6 +35,7 @@ public class ConfigManager {
         loadLangConfig();
         loadChatRulesConfig();
         loadReportsConfig();
+        loadChatBotConfig();
     }
     
     private void loadMainConfig() {
@@ -44,17 +44,6 @@ public class ConfigManager {
             plugin.saveResource("config.yml", false);
         }
         mainConfig = YamlConfiguration.loadConfiguration(mainConfigFile);
-        
-        try (InputStream defStream = plugin.getResource("config.yml")) {
-            if (defStream != null) {
-                YamlConfiguration defConfig = YamlConfiguration.loadConfiguration(
-                    new InputStreamReader(defStream, StandardCharsets.UTF_8)
-                );
-                mainConfig.setDefaults(defConfig);
-            }
-        } catch (IOException e) {
-            plugin.getLogger().warning("Could not load default config.yml");
-        }
     }
     
     private void loadLangConfig() {
@@ -81,33 +70,41 @@ public class ConfigManager {
         reportsConfig = YamlConfiguration.loadConfiguration(reportsFile);
     }
     
-    public void reloadAll() {
-        loadAll();
-    }
-    
-    public void saveMainConfig() {
-        try {
-            mainConfig.save(mainConfigFile);
-        } catch (IOException e) {
-            plugin.getLogger().severe("Could not save config.yml: " + e.getMessage());
-        }
-    }
-
-    public FileConfiguration getChatBotConfig() {
-    if (chatBotConfig == null) {
+    private void loadChatBotConfig() {
         chatBotFile = new File(plugin.getDataFolder(), "chatbot.yml");
         if (!chatBotFile.exists()) {
             plugin.saveResource("chatbot.yml", false);
         }
         chatBotConfig = YamlConfiguration.loadConfiguration(chatBotFile);
     }
-    return chatBotConfig;
+    
+    public void reloadAll() {
+        loadMainConfig();
+        loadLangConfig();
+        loadChatRulesConfig();
+        loadReportsConfig();
+        loadChatBotConfig();
     }
-
-    public void reloadChatBotConfig() {
-    if (chatBotFile == null) {
-        chatBotFile = new File(plugin.getDataFolder(), "chatbot.yml");
+    
+    // ========== ГЕТТЕРЫ (добавь эти методы) ==========
+    
+    public FileConfiguration getMainConfig() {
+        return mainConfig;
     }
-    chatBotConfig = YamlConfiguration.loadConfiguration(chatBotFile);
+    
+    public FileConfiguration getLangConfig() {
+        return langConfig;
+    }
+    
+    public FileConfiguration getChatRulesConfig() {
+        return chatRulesConfig;
+    }
+    
+    public FileConfiguration getReportsConfig() {
+        return reportsConfig;
+    }
+    
+    public FileConfiguration getChatBotConfig() {
+        return chatBotConfig;
     }
 }
