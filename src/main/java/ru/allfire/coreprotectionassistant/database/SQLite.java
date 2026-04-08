@@ -109,6 +109,8 @@ public class SQLite implements IDatabase {
             
             stmt.execute("CREATE TABLE IF NOT EXISTS cpa_apologies (id INTEGER PRIMARY KEY AUTOINCREMENT, player_uuid VARCHAR(36), player_name VARCHAR(32), target_name VARCHAR(32), rule_name VARCHAR(64), warnings_cleared INTEGER, timestamp BIGINT)");
             
+            stmt.execute("CREATE TABLE IF NOT EXISTS cpa_grief_actions (id INTEGER PRIMARY KEY AUTOINCREMENT, player_uuid VARCHAR(36), player_name VARCHAR(32), world VARCHAR(64), x INTEGER, y INTEGER, z INTEGER, block_type VARCHAR(64), timestamp BIGINT)");
+            
         }
     }
 }
