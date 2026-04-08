@@ -134,10 +134,24 @@ public final class CoreProtectionAssistant extends JavaPlugin {
     
     private void startScheduledTasks() {
         int interval = configManager.getMainConfig().getInt("warn_clear.check_interval_ticks", 12000);
+        
+        // Проверка условий автоснятия
         getServer().getScheduler().runTaskTimerAsynchronously(this,
-            () -> warnManager.checkWarnClearConditions(), interval, interval);
+            () -> warnManager.checkWarnClearConditions(),
+            interval, interval
+        );
+        
+        // Проверка просроченных варнов (каждые 60 секунд = 1200 тиков)
         getServer().getScheduler().runTaskTimerAsynchronously(this,
-            () -> reportManager.cleanupOldReports(), 20 * 60 * 30, 20 * 60 * 60 * 6);
+            () -> warnManager.checkExpiredWarnings(),
+            1200L, 1200L
+        );
+        
+        // Очистка старых жалоб
+        getServer().getScheduler().runTaskTimerAsynchronously(this,
+            () -> reportManager.cleanupOldReports(),
+            20 * 60 * 30, 20 * 60 * 60 * 6
+        );
     }
     
     public void reload() {
