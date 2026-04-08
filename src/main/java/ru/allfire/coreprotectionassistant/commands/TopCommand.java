@@ -1,11 +1,8 @@
 package ru.allfire.coreprotectionassistant.commands;
 
-import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
-import ru.allfire.coreprotectionassistant.utils.Color;
+import ru.allfire.coreprotectionassistant.config.Lang;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -55,16 +52,15 @@ public class TopCommand implements CommandManager.SubCommand {
     @Override
     public boolean execute(CommandSender sender, String[] args) {
         if (args.length < 1) {
-            sender.sendMessage(Color.colorize("&cUsage: " + getUsage()));
-            sender.sendMessage(Color.colorize("&7Types: " + String.join(", ", VALID_TYPES)));
+            Lang.send(sender, "top_usage");
+            sender.sendMessage(Lang.colorize("&7Types: " + String.join(", ", VALID_TYPES)));
             return true;
         }
         
         String type = args[0].toLowerCase();
         
         if (!VALID_TYPES.contains(type)) {
-            sender.sendMessage(Color.colorize("&cInvalid type. Available: " + 
-                String.join(", ", VALID_TYPES)));
+            Lang.send(sender, "top_invalid_type", "types", String.join(", ", VALID_TYPES));
             return true;
         }
         
@@ -74,7 +70,7 @@ public class TopCommand implements CommandManager.SubCommand {
                 page = Integer.parseInt(args[1]);
                 if (page < 1) page = 1;
             } catch (NumberFormatException e) {
-                sender.sendMessage(Color.colorize("&cInvalid page number"));
+                Lang.send(sender, "top_invalid_page");
                 return true;
             }
         }
@@ -87,28 +83,23 @@ public class TopCommand implements CommandManager.SubCommand {
             String typeName = plugin.getConfigManager().getLangConfig()
                 .getString("messages.top_types." + type, type);
             
-            // Отправляем сообщения в основном потоке
             plugin.getServer().getScheduler().runTask(plugin, () -> {
-                sender.sendMessage(Color.colorize(
-                    plugin.getConfigManager().getLangConfig().getString("messages.top_header",
-                        "&8&m-----&r &cTop: &f%type% &8(Page %page%) &8&m-----")
-                        .replace("%type%", typeName)
-                        .replace("%page%", String.valueOf(finalPage))
-                ));
+                Lang.send(sender, "top_header", "type", typeName, "page", String.valueOf(finalPage));
                 
                 if (topList.isEmpty()) {
-                    sender.sendMessage(Color.colorize("&7No data available"));
+                    Lang.send(sender, "top_no_data");
                     return;
                 }
                 
                 int position = (finalPage - 1) * 10 + 1;
                 for (TopEntry entry : topList) {
-                    String format = plugin.getConfigManager().getLangConfig()
-                        .getString("messages.top_format", "&f#%position% &7- &f%player% &8| &7%value%")
+                    String message = Lang.get("top_format")
                         .replace("%position%", String.valueOf(position++))
                         .replace("%player%", entry.playerName)
                         .replace("%value%", formatValue(type, entry.value));
-                    sender.sendMessage(Color.colorize(format));
+                    if (!message.isEmpty()) {
+                        sender.sendMessage(Lang.colorize(message));
+                    }
                 }
             });
         });
@@ -154,13 +145,6 @@ public class TopCommand implements CommandManager.SubCommand {
                 while (rs.next()) {
                     String playerName = rs.getString("player_name");
                     int value = rs.getInt("value");
-                    
-                    // Для типов, которые берутся из CoreProtect
-                    if (!type.equals("warnings") && !type.equals("reports")) {
-                        // Заглушка - в будущем можно добавить запросы к CoreProtect
-                        value = 0;
-                    }
-                    
                     list.add(new TopEntry(playerName, value));
                 }
             }
