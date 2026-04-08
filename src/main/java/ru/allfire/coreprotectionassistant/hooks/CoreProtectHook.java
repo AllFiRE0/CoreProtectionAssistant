@@ -129,7 +129,7 @@ public class CoreProtectHook {
     }
     
     /**
-     * Получить владельца блока (кто его поставил)
+     * Получить владельца блока (кто его поставил ПОСЛЕДНИМ)
      */
     public CompletableFuture<String> getBlockOwner(Location loc) {
         return CompletableFuture.supplyAsync(() -> {
@@ -138,7 +138,6 @@ public class CoreProtectHook {
             boolean debug = plugin.getConfigManager().getMainConfig().getBoolean("debug", false);
             
             try {
-                // Способ 1: blockLookup
                 if (blockLookupMethod != null) {
                     Object result = blockLookupMethod.invoke(coreProtectAPI, loc.getBlock(), 0);
                     if (result instanceof List) {
@@ -149,69 +148,49 @@ public class CoreProtectHook {
                             plugin.getLogger().info("blockLookup returned " + lookup.size() + " entries");
                         }
                         
+                        // Ищем ПОСЛЕДНЕЕ действие PLACE (сортировка по времени)
+                        String lastOwner = null;
+                        long lastTime = 0;
+                        
                         for (String[] row : lookup) {
+                            if (debug) {
+                                plugin.getLogger().info("  row: " + Arrays.toString(row));
+                            }
+                            
+                            // В CoreProtect API строка содержит:
+                            // row[0] = timestamp (в секундах)
+                            // row[1] = username
+                            // row[2] = action (0=break, 1=place, 2=interact)
+                            
                             if (row.length >= 3) {
                                 try {
-                                    int type = Integer.parseInt(row[2]);
-                                    if (debug) {
-                                        plugin.getLogger().info("  - user: " + row[1] + ", type: " + type);
+                                    long timestamp = Long.parseLong(row[0]);
+                                    String username = row[1];
+                                    
+                                    // Ищем действие PLACE
+                                    boolean isPlace = false;
+                                    for (String val : row) {
+                                        if (val != null && val.equals("1")) {
+                                            isPlace = true;
+                                            break;
+                                        }
                                     }
-                                    if (type == 1) { // PLACE
-                                        return row[1];
+                                    
+                                    if (isPlace && timestamp > lastTime) {
+                                        lastTime = timestamp;
+                                        lastOwner = username;
                                     }
                                 } catch (NumberFormatException e) {
                                     // Пропускаем
                                 }
                             }
                         }
-                    }
-                }
-                
-                // Способ 2: performLookup с радиусом 0
-                if (performLookupMethod != null) {
-                    int paramCount = performLookupMethod.getParameterCount();
-                    Object result;
-                    
-                    if (paramCount == 8) {
-                        result = performLookupMethod.invoke(coreProtectAPI,
-                            0, null, null, null, null, null, 0, loc);
-                    } else {
-                        return null;
-                    }
-                    
-                    if (result instanceof List) {
-                        @SuppressWarnings("unchecked")
-                        List<String[]> lookup = (List<String[]>) result;
                         
-                        if (debug) {
-                            plugin.getLogger().info("performLookup returned " + lookup.size() + " entries");
-                        }
-                        
-                        for (String[] row : lookup) {
-                            if (row.length >= 2) {
-                                String user = null;
-                                int type = -1;
-                                
-                                for (int i = 0; i < row.length; i++) {
-                                    String val = row[i];
-                                    if (val == null) continue;
-                                    
-                                    if (val.equals("0") || val.equals("1") || val.equals("2")) {
-                                        type = Integer.parseInt(val);
-                                    }
-                                    else if (!val.matches("\\d+") && !val.equals("#null") && user == null) {
-                                        user = val;
-                                    }
-                                }
-                                
-                                if (debug) {
-                                    plugin.getLogger().info("  - user: " + user + ", type: " + type);
-                                }
-                                
-                                if (type == 1 && user != null) {
-                                    return user;
-                                }
+                        if (lastOwner != null) {
+                            if (debug) {
+                                plugin.getLogger().info("Found owner: " + lastOwner + " (time: " + lastTime + ")");
                             }
+                            return lastOwner;
                         }
                     }
                 }
