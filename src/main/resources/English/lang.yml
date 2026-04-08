@@ -42,6 +42,9 @@ messages:
   unknown_command: "%prefix% &cUnknown command. &f/cpa help"
   # Command execution error
   error_executing: "%prefix% &cError executing command."
+  grief_possible: "&c[CPA] Possible grief: &f%player% &cbroke &f%block% &cat &f%world% %x% %y% %z%"
+  grief_staff_suspected: "&c[CPA] Staff member &f%player% &csuspected of griefing!"
+  grief_interact: "&7Player &f%player% &7interacted with &f%block% &7owned by &f%owner%"
 
   # ------------------------------------------
   # Help (/cpa help)
