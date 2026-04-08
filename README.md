@@ -114,6 +114,16 @@ CoreProtectionAssistant (CPA) is a **zero-trust** staff monitoring and player re
 | `reports.yml` | Report categories and anti-abuse settings |
 | `chatbot.yml` | ChatBot rules and responses (NEW) |
 
+### Auto Cleanup (`config.yml` section)
+```yaml
+cleanup:
+  player_commands: 30   # Days to keep player commands
+  staff_actions: 90     # Days to keep staff actions
+  chat_violations: 30   # Days to keep chat violations
+  apologies: 30         # Days to keep apologies
+  grief_actions: 30     # Days to keep grief actions
+```
+
 ### Grief Detection (`config.yml` section)
 ```yaml
 grief_detection:
@@ -141,6 +151,7 @@ grief_detection:
 |---------|------------|-------------|
 | `/cpa` | - | Show help menu |
 | `/cpa stats <player>` | `cpa.moder` | View player statistics |
+| `/cpa resetstats <player> <type>` | `cpa.staff` | Reset player statistics (commands/all/ban/mute/kick/give/gm/rating/warn/free) |
 | `/cpa staff <player>` | `cpa.staff` | View staff member statistics |
 | `/cpa top <type> [page]` | `cpa.moder` | View leaderboards |
 | `/cpa check <player>` | `cpa.moder` | Quick player check |
@@ -161,6 +172,7 @@ grief_detection:
 |------------|---------|-------------|
 | `cpa.moder` | op | Access to player statistics |
 | `cpa.staff` | op | Access to staff statistics (owner only!) |
+| `cpa.resetstats` | op | Can reset player statistics |
 | `cpa.warn` | op | Can issue warnings |
 | `cpa.warn.clear` | op | Can clear warnings |
 | `cpa.report` | true | Can use `/report` |
@@ -223,6 +235,7 @@ Supports both **SQLite** (default) and **MySQL**.
 - `cpa_abuse_scores` — Staff abuse scores
 - `cpa_grief_actions` — Grief detection log
 - `cpa_player_commands` — All tracked player and staff commands
+- `cpa_player_commands` — All tracked player and staff commands
 
 ---
 
@@ -246,25 +259,28 @@ Supports both **SQLite** (default) and **MySQL**.
 
 ---
 
-❓ FAQ
+## ❓ FAQ
 
-  Q: Why "zero-trust"?
-  A: The plugin assumes staff members might abuse their powers. It tracks everything and calculates an abuse score to alert owners.
+**Q: Why "zero-trust"?**  
+A: The plugin assumes staff members might abuse their powers. It tracks everything and calculates an abuse score to alert owners.
 
-  Q: Does it work without CoreProtect?
-  A: Yes, but block/chest/command statistics and grief detection will be unavailable.
+**Q: Does it work without CoreProtect?**  
+A: Yes, but block/chest/command statistics and grief detection will be unavailable.
 
-  Q: Can I customize the abuse score weights?
-  A: Yes, in config.yml under abuse_weights.
+**Q: Can I customize the abuse score weights?**  
+A: Yes, in config.yml under abuse_weights.
 
-  Q: How do I add new chat rules?
-  A: Edit chattrules.yml and use /cpa reload.
+**Q: How do I add new chat rules?**  
+A: Edit chattrules.yml and use /cpa reload.
 
-  Q: What is "recidivism"?
-  A: Repeated violations within a time window result in harsher punishments.
+**Q: What is "recidivism"?**  
+A: Repeated violations within a time window result in harsher punishments.
 
-  Q: How do I disable a specific message?
-  A: Set it to "" or "none" in lang.yml.
+**Q: How do I disable a specific message?**  
+A: Set it to "" or "none" in lang.yml.
+
+**Q: How do I reset a player's statistics?**  
+A: Use `/cpa resetstats <player> <type>` (commands, all, ban, mute, kick, give, gm, rating, warn, free).
 
 ```bash
 
