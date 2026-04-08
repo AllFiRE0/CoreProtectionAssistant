@@ -43,7 +43,6 @@ public class ReloadCommand implements CommandManager.SubCommand {
     public boolean execute(CommandSender sender, String[] args) {
         long startTime = System.currentTimeMillis();
         
-        // Используем единый метод reload() из главного класса
         plugin.reload();
         
         long loadTime = System.currentTimeMillis() - startTime;
