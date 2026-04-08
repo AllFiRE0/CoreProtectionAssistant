@@ -135,20 +135,29 @@ public class CoreProtectHook {
         return CompletableFuture.supplyAsync(() -> {
             if (!isEnabled()) return null;
             
+            boolean debug = plugin.getConfigManager().getMainConfig().getBoolean("debug", false);
+            
             try {
+                // Способ 1: blockLookup
                 if (blockLookupMethod != null) {
                     Object result = blockLookupMethod.invoke(coreProtectAPI, loc.getBlock(), 0);
                     if (result instanceof List) {
                         @SuppressWarnings("unchecked")
                         List<String[]> lookup = (List<String[]>) result;
                         
-                        // Ищем действие PLACE (type=1)
+                        if (debug) {
+                            plugin.getLogger().info("blockLookup returned " + lookup.size() + " entries");
+                        }
+                        
                         for (String[] row : lookup) {
                             if (row.length >= 3) {
                                 try {
                                     int type = Integer.parseInt(row[2]);
+                                    if (debug) {
+                                        plugin.getLogger().info("  - user: " + row[1] + ", type: " + type);
+                                    }
                                     if (type == 1) { // PLACE
-                                        return row[1]; // username
+                                        return row[1];
                                     }
                                 } catch (NumberFormatException e) {
                                     // Пропускаем
@@ -157,8 +166,61 @@ public class CoreProtectHook {
                         }
                     }
                 }
+                
+                // Способ 2: performLookup с радиусом 0
+                if (performLookupMethod != null) {
+                    int paramCount = performLookupMethod.getParameterCount();
+                    Object result;
+                    
+                    if (paramCount == 8) {
+                        result = performLookupMethod.invoke(coreProtectAPI,
+                            0, null, null, null, null, null, 0, loc);
+                    } else {
+                        return null;
+                    }
+                    
+                    if (result instanceof List) {
+                        @SuppressWarnings("unchecked")
+                        List<String[]> lookup = (List<String[]>) result;
+                        
+                        if (debug) {
+                            plugin.getLogger().info("performLookup returned " + lookup.size() + " entries");
+                        }
+                        
+                        for (String[] row : lookup) {
+                            if (row.length >= 2) {
+                                String user = null;
+                                int type = -1;
+                                
+                                for (int i = 0; i < row.length; i++) {
+                                    String val = row[i];
+                                    if (val == null) continue;
+                                    
+                                    if (val.equals("0") || val.equals("1") || val.equals("2")) {
+                                        type = Integer.parseInt(val);
+                                    }
+                                    else if (!val.matches("\\d+") && !val.equals("#null") && user == null) {
+                                        user = val;
+                                    }
+                                }
+                                
+                                if (debug) {
+                                    plugin.getLogger().info("  - user: " + user + ", type: " + type);
+                                }
+                                
+                                if (type == 1 && user != null) {
+                                    return user;
+                                }
+                            }
+                        }
+                    }
+                }
+                
             } catch (Exception e) {
                 plugin.getLogger().warning("Failed to get block owner: " + e.getMessage());
+                if (debug) {
+                    e.printStackTrace();
+                }
             }
             
             return null;
@@ -182,14 +244,10 @@ public class CoreProtectHook {
                         for (String[] row : lookup) {
                             if (row.length >= 2) {
                                 String user = row[1];
-                                // Пропускаем текущего игрока
                                 if (user.equalsIgnoreCase(currentPlayer)) continue;
-                                // Пропускаем владельца
                                 if (owner != null && user.equalsIgnoreCase(owner)) continue;
-                                // Пропускаем null
                                 if (user.equals("#null")) continue;
                                 
-                                // Нашли кого-то ещё — значит было взаимодействие
                                 return true;
                             }
                         }
