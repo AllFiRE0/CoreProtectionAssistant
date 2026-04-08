@@ -10,7 +10,6 @@ enabled: false
 permission_usage: "cpa.chatbot.use"
 # Глобальный кулдаун между ЛЮБЫМИ ответами бота одному игроку (в тиках)
 # 120 тиков = 6 секунд
-# Защита от спама
 global_cooldown_ticks: 120
 # Игнорировать ли боту самого себя (чтобы не было рекурсии)
 ignore_self: true
@@ -35,37 +34,28 @@ exclusions:
 # ============================================
 # ПРАВИЛА БОТА
 # ============================================
+
 rules:
   # ------------------------------------------
   # Приветствие
   # ------------------------------------------
   greeting:
-    # Включено ли правило
     enabled: true
-    # Приоритет (чем выше, тем раньше проверяется)
     priority: 100
-    # Право для этого правила (если "" - не проверяется)
-    permission: "cpa.chatbot.greeting"
-    # Условия для срабатывания (если "" - не проверяется)
-    # Поддерживаются: ==, !=, >, <, >=, <=, contains, AND, OR, ( )
-    # Доступные плейсхолдеры: %player_name%, %player_world%, %player_health%, %cpa_player_warnings_count%, и любые PAPI
-    # Пример: "%player_health% > 10 AND %cpa_player_warnings_count% < 3"
+    permission: ""
     conditions: ""
-    # Символ-префикс в начале сообщения (если "" - реагирует на любое сообщение)
-    # Например: "!" - бот отвечает только на "!Привет", но не на "Привет"
     symbol: "!"
-    # Кулдаун для этого правила (в тиках), 0 = без кулдауна
     cooldown_ticks: 40
-    # Регулярное выражение для поиска в сообщении
-    # (?i) - игнорировать регистр
-    # ^ - начало строки
+    chance: 100
+    delay_ticks: 0
     regex: "(?i)^(привет|здравствуй|хай|hello|hi|privet|zdarova|ку|прив|здарова)"
-    # Команды, выполняемые при срабатывании
-    # Доступные переменные: %player_name%, %player_uuid%, %message%, %target% (если упомянут)
     answer_cmds:
       - "message! &a&lБОТ &7» &fПривет, %player_name%! Добро пожаловать на сервер!"
       - "sound! ENTITY_PLAYER_LEVELUP 1.0 1.5"
       - "asConsole! give %player_name% minecraft:bread 1"
+    answer_cmds_random:
+      - "message! &a&lБОТ &7» &fЗдарова, %player_name%!"
+      - "message! &a&lБОТ &7» &fПриветствую тебя, %player_name%!"
 
   # ------------------------------------------
   # Прощание
@@ -77,6 +67,8 @@ rules:
     conditions: ""
     symbol: "!"
     cooldown_ticks: 40
+    chance: 100
+    delay_ticks: 0
     regex: "(?i)^(пока|до свидания|бай|bye|goodbye|ухожу|всем пока)"
     answer_cmds:
       - "message! &a&lБОТ &7» &fДо встречи, %player_name%! Заходи ещё!"
@@ -92,6 +84,8 @@ rules:
     conditions: ""
     symbol: "!"
     cooldown_ticks: 100
+    chance: 100
+    delay_ticks: 0
     regex: "(?i)^(помощь|help|команды|хелп|помогите|что делать)"
     answer_cmds:
       - "message! &a&lБОТ &7» &fДоступные команды: &e/cpa help&f, &e/report&f, &e/kit&f, &e/spawn"
@@ -100,13 +94,15 @@ rules:
   # ------------------------------------------
   # Правила сервера
   # ------------------------------------------
-  rules:
+  rules_info:
     enabled: true
     priority: 70
     permission: ""
     conditions: ""
     symbol: "!"
     cooldown_ticks: 200
+    chance: 100
+    delay_ticks: 0
     regex: "(?i)^(правила|rules|правило|законы)"
     answer_cmds:
       - "message! &a&lБОТ &7» &fПравила сервера:"
@@ -116,21 +112,6 @@ rules:
       - "message! &7  4. Не использовать читы"
 
   # ------------------------------------------
-  # Онлайн сервера
-  # ------------------------------------------
-  online:
-    enabled: true
-    priority: 60
-    permission: ""
-    conditions: ""
-    symbol: "!"
-    cooldown_ticks: 100
-    regex: "(?i)^(онлайн|online|сколько игроков|кто на сервере|игроки)"
-    answer_cmds:
-      - "asConsole! cpa online %player_name%"  # Можно создать свою команду
-      - "message! &a&lБОТ &7» &fСейчас на сервере играет &e%online_players% &fчеловек"
-
-  # ------------------------------------------
   # Спасибо
   # ------------------------------------------
   thanks:
@@ -138,8 +119,10 @@ rules:
     priority: 50
     permission: ""
     conditions: ""
-    symbol: ""  # Без символа - реагирует на любое сообщение
+    symbol: ""
     cooldown_ticks: 60
+    chance: 100
+    delay_ticks: 0
     regex: "(?i)(спасибо|благодарю|спс|thanks|thx|thank you|сяб)"
     answer_cmds:
       - "message! &a&lБОТ &7» &fПожалуйста, %player_name%! Рад помочь!"
@@ -155,11 +138,16 @@ rules:
     conditions: ""
     symbol: ""
     cooldown_ticks: 80
+    chance: 100
+    delay_ticks: 0
     regex: "(?i)(как дела|как ты|how are you|чё как|как жизнь)"
     answer_cmds:
       - "message! &a&lБОТ &7» &fУ меня всё отлично, %player_name%! Я всегда на связи!"
       - "message! &a&lБОТ &7» &fА как твои дела?"
       - "sound! BLOCK_NOTE_BLOCK_PLING 1.0 1.2"
+    answer_cmds_random:
+      - "message! &a&lБОТ &7» &fОтлично! А у тебя?"
+      - "message! &a&lБОТ &7» &fСупер! Спасибо что спросил!"
 
   # ------------------------------------------
   # Упоминание бота
@@ -171,21 +159,62 @@ rules:
     conditions: ""
     symbol: ""
     cooldown_ticks: 50
+    chance: 100
+    delay_ticks: 0
     regex: "(?i)(бот|bot|cpa|чатбот|chatbot|помощник)"
     answer_cmds:
       - "message! &a&lБОТ &7» &fДа, %player_name%? Я слушаю! Используй &e!помощь &fдля списка команд"
 
   # ------------------------------------------
-  # Топ игроков (пример с условием)
+  # Топ игроков (с условиями)
   # ------------------------------------------
   top_request:
     enabled: true
     priority: 30
-    permission: "cpa.chatbot.top"
-    conditions: "%cpa_player_warnings_count% < 3"  # Только для игроков с <3 варнов
+    permission: ""
+    conditions: "%cpa_player_warnings_{player}% < 3 AND %player_world% == world"
     symbol: "!"
     cooldown_ticks: 300
+    chance: 100
+    delay_ticks: 20
     regex: "(?i)^(топ|top|лидеры|лучшие)"
     answer_cmds:
+      - "message! &a&lБОТ &7» &fСейчас покажу топ игроков..."
       - "asConsole! cpa top warnings 1"
-      - "message! &a&lБОТ &7» &fТоп игроков отправлен в чат!"
+
+  # ------------------------------------------
+  # Ночной режим (только ночью в игре)
+  # ------------------------------------------
+  night_greeting:
+    enabled: true
+    priority: 110
+    permission: ""
+    conditions: "%player_time% >= 13000 AND %player_time% <= 23000"
+    symbol: "!"
+    cooldown_ticks: 100
+    chance: 100
+    delay_ticks: 0
+    regex: "(?i)^(привет|здравствуй|хай)"
+    answer_cmds:
+      - "message! &a&lБОТ &7» &fДоброй ночи, %player_name%! Осторожнее, вокруг монстры!"
+      - "sound! ENTITY_WOLF_HOWL 1.0 0.8"
+
+  # ------------------------------------------
+  # Погода (пример с %world% и случайным ответом)
+  # ------------------------------------------
+  weather:
+    enabled: true
+    priority: 20
+    permission: ""
+    conditions: ""
+    symbol: "!"
+    cooldown_ticks: 150
+    chance: 50
+    delay_ticks: 30
+    regex: "(?i)^(погода|weather|дождь|солнце)"
+    answer_cmds:
+      - "asConsole! weather %player_world%"
+    answer_cmds_random:
+      - "message! &a&lБОТ &7» &fПогода в мире %player_world% скоро изменится!"
+      - "message! &a&lБОТ &7» &fНадеюсь, тебе нравится погода, %player_name%!"
+      - "message! &a&lБОТ &7» &fЯ не управляю погодой, но могу попробовать!"
