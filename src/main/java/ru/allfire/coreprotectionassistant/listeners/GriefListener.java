@@ -10,6 +10,7 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
+import ru.allfire.coreprotectionassistant.config.Lang;
 import ru.allfire.coreprotectionassistant.utils.CommandExecutor;
 
 import java.util.List;
@@ -117,7 +118,15 @@ public class GriefListener implements Listener {
             lastGriefTime.put(player.getUniqueId(), now);
             
             if (plugin.getConfigManager().getMainConfig().getBoolean("console_logging.grief_detection", true)) {
-                plugin.getLogger().warning("Possible grief: " + player.getName() + " broke " + blockType + " owned by " + owner);
+                String msg = Lang.get("grief_possible")
+                    .replace("%player%", player.getName())
+                    .replace("%block%", blockType)
+                    .replace("%world%", block.getWorld().getName())
+                    .replace("%x%", String.valueOf(block.getX()))
+                    .replace("%y%", String.valueOf(block.getY()))
+                    .replace("%z%", String.valueOf(block.getZ()))
+                    .replace("%owner%", owner);
+                plugin.getLogger().warning(Lang.colorize(msg));
             }
             
             plugin.getDatabaseManager().logGriefAction(player, block);
@@ -177,8 +186,11 @@ public class GriefListener implements Listener {
             lastInteractTime.put(player.getUniqueId(), now);
             
             if (plugin.getConfigManager().getMainConfig().getBoolean("console_logging.grief_detection", true)) {
-                plugin.getLogger().info("Player " + player.getName() + " interacted with " + 
-                    blockType + " owned by " + (owner != null ? owner : "unknown"));
+                String msg = Lang.get("grief_interact")
+                    .replace("%player%", player.getName())
+                    .replace("%block%", blockType)
+                    .replace("%owner%", owner != null ? owner : "unknown");
+                plugin.getLogger().info(Lang.colorize(msg));
             }
         });
     }
