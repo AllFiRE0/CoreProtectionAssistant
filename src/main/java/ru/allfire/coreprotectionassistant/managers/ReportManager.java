@@ -204,6 +204,11 @@ public class ReportManager {
         boolean notifyStaff = plugin.getConfigManager().getReportsConfig().getBoolean("reports.notify_staff", true);
         if (!notifyStaff) return;
         
+        if (plugin.getConfigManager().getMainConfig().getBoolean("console_logging.reports", true)) {
+            plugin.getLogger().info("[REPORT #" + reportId + "] " + report.getReporterName() + 
+                " → " + report.getTargetName() + ": " + report.getReason());
+        }
+        
         String msg = Lang.get("report_notify_staff",
             "id", String.valueOf(reportId),
             "reporter", report.getReporterName(),
@@ -271,7 +276,7 @@ public class ReportManager {
                  PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setLong(1, cutoff);
                 int deleted = ps.executeUpdate();
-                if (deleted > 0) {
+                if (deleted > 0 && plugin.getConfigManager().getMainConfig().getBoolean("console_logging.reports", true)) {
                     plugin.getLogger().info("Cleaned up " + deleted + " old reports");
                 }
             } catch (SQLException e) {
