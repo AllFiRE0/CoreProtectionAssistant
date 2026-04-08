@@ -30,18 +30,27 @@ public class StaffManager {
     
     public void logStaffAction(Player staff, String action, String target, String details) {
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
-            try {
-                plugin.getDatabaseManager().logStaffAction(
-                    staff.getUniqueId(),
-                    staff.getName(),
-                    action,
-                    target,
-                    details,
-                    staff.getWorld().getName(),
-                    staff.getLocation().getX(),
-                    staff.getLocation().getY(),
-                    staff.getLocation().getZ()
-                ).join();
+            String sql = """
+                INSERT INTO cpa_staff_actions 
+                (staff_uuid, staff_name, action, target, details, world, x, y, z, timestamp) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """;
+            
+            try (Connection conn = plugin.getDatabaseManager().getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sql)) {
+                
+                ps.setString(1, staff.getUniqueId().toString());
+                ps.setString(2, staff.getName());
+                ps.setString(3, action);
+                ps.setString(4, target);
+                ps.setString(5, details);
+                ps.setString(6, staff.getWorld().getName());
+                ps.setDouble(7, staff.getLocation().getX());
+                ps.setDouble(8, staff.getLocation().getY());
+                ps.setDouble(9, staff.getLocation().getZ());
+                ps.setLong(10, System.currentTimeMillis());
+                
+                ps.executeUpdate();
                 
                 StaffStats stats = statsCache.computeIfAbsent(
                     staff.getUniqueId(), k -> new StaffStats()
@@ -55,7 +64,7 @@ public class StaffManager {
                     case "gamemode" -> stats.gamemodeChanges++;
                 }
                 
-            } catch (Exception e) {
+            } catch (SQLException e) {
                 plugin.getLogger().severe("Failed to log staff action: " + e.getMessage());
             }
         });
@@ -136,33 +145,31 @@ public class StaffManager {
             StaffStats stats = new StaffStats();
             
             plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
-                try {
-                    String sql = """
-                        SELECT 
-                            SUM(CASE WHEN action = 'BAN' THEN 1 ELSE 0 END) as bans,
-                            SUM(CASE WHEN action = 'MUTE' THEN 1 ELSE 0 END) as mutes,
-                            SUM(CASE WHEN action = 'KICK' THEN 1 ELSE 0 END) as kicks,
-                            SUM(CASE WHEN action = 'GIVE' THEN 1 ELSE 0 END) as gives,
-                            SUM(CASE WHEN action = 'GAMEMODE' THEN 1 ELSE 0 END) as gamemodes
-                        FROM cpa_staff_actions 
-                        WHERE staff_uuid = ?
-                    """;
+                String sql = """
+                    SELECT 
+                        SUM(CASE WHEN action = 'BAN' THEN 1 ELSE 0 END) as bans,
+                        SUM(CASE WHEN action = 'MUTE' THEN 1 ELSE 0 END) as mutes,
+                        SUM(CASE WHEN action = 'KICK' THEN 1 ELSE 0 END) as kicks,
+                        SUM(CASE WHEN action = 'GIVE' THEN 1 ELSE 0 END) as gives,
+                        SUM(CASE WHEN action = 'GAMEMODE' THEN 1 ELSE 0 END) as gamemodes
+                    FROM cpa_staff_actions 
+                    WHERE staff_uuid = ?
+                """;
+                
+                try (Connection conn = plugin.getDatabaseManager().getConnection();
+                     PreparedStatement ps = conn.prepareStatement(sql)) {
                     
-                    try (Connection conn = plugin.getDatabaseManager().getConnection();
-                         PreparedStatement ps = conn.prepareStatement(sql)) {
-                        
-                        ps.setString(1, uuid.toString());
-                        ResultSet rs = ps.executeQuery();
-                        
-                        if (rs.next()) {
-                            stats.bansCount = rs.getInt("bans");
-                            stats.mutesCount = rs.getInt("mutes");
-                            stats.kicksCount = rs.getInt("kicks");
-                            stats.givesCount = rs.getInt("gives");
-                            stats.gamemodeChanges = rs.getInt("gamemodes");
-                        }
+                    ps.setString(1, uuid.toString());
+                    ResultSet rs = ps.executeQuery();
+                    
+                    if (rs.next()) {
+                        stats.bansCount = rs.getInt("bans");
+                        stats.mutesCount = rs.getInt("mutes");
+                        stats.kicksCount = rs.getInt("kicks");
+                        stats.givesCount = rs.getInt("gives");
+                        stats.gamemodeChanges = rs.getInt("gamemodes");
                     }
-                } catch (Exception e) {
+                } catch (SQLException e) {
                     plugin.getLogger().severe("Failed to load staff stats: " + e.getMessage());
                 }
             });
