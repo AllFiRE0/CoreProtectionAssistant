@@ -1,11 +1,14 @@
 package ru.allfire.coreprotectionassistant.listeners;
 
+import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
 import ru.allfire.coreprotectionassistant.utils.CommandExecutor;
 
@@ -18,6 +21,7 @@ public class GriefListener implements Listener {
     
     private final CoreProtectionAssistant plugin;
     private final Map<UUID, Long> lastGriefTime = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> lastInteractTime = new ConcurrentHashMap<>();
     
     public GriefListener(CoreProtectionAssistant plugin) {
         this.plugin = plugin;
@@ -70,5 +74,46 @@ public class GriefListener implements Listener {
                 }
             }
         });
+    }
+    
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerInteract(PlayerInteractEvent event) {
+        if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        
+        Block block = event.getClickedBlock();
+        if (block == null) return;
+        if (!isContainer(block.getType())) return;
+        
+        Player player = event.getPlayer();
+        var config = plugin.getConfigManager().getMainConfig();
+        
+        if (!config.getBoolean("grief_detection.enabled", false)) return;
+        
+        String blockType = block.getType().name();
+        List<String> trackedBlocks = config.getStringList("grief_detection.tracked_blocks");
+        if (!trackedBlocks.contains(blockType)) return;
+        
+        long now = System.currentTimeMillis();
+        Long lastTime = lastInteractTime.get(player.getUniqueId());
+        if (lastTime != null && (now - lastTime) < 2000) return; // 2 сек кулдаун
+        
+        var hook = plugin.getCoreProtectHook();
+        if (hook == null || !hook.isEnabled()) return;
+        
+        hook.wasModifiedByOther(block.getLocation(), player.getName()).thenAccept(wasModified -> {
+            if (wasModified) {
+                lastInteractTime.put(player.getUniqueId(), now);
+                plugin.getLogger().info("Player " + player.getName() + " interacted with " + 
+                    blockType + " placed/modified by another player");
+                // Можно добавить логирование в БД или лёгкое предупреждение
+            }
+        });
+    }
+    
+    private boolean isContainer(Material material) {
+        String name = material.name();
+        return name.contains("CHEST") || name.contains("SHULKER") || name.contains("BARREL") ||
+               name.contains("FURNACE") || name.contains("HOPPER") || name.contains("DISPENSER") ||
+               name.contains("DROPPER") || name.contains("BREWING_STAND");
     }
 }
