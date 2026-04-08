@@ -2,7 +2,6 @@ package ru.allfire.coreprotectionassistant.hooks;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
@@ -107,12 +106,8 @@ public class CoreProtectHook {
                 // API v10/v11
                 result = performLookupMethod.invoke(coreProtectAPI,
                     timeSeconds, users, null, null, null, actions, 0, null);
-            } else if (paramCount == 9) {
-                // Старая версия
-                result = performLookupMethod.invoke(coreProtectAPI,
-                    timeSeconds, users, null, null, actions, null, null, 0, null);
             } else if (paramCount == 6) {
-                // Ещё более старая
+                // Старая версия
                 result = performLookupMethod.invoke(coreProtectAPI,
                     100000, timeSeconds > 0 ? List.of(timeSeconds) : null, users, actions, null, null);
             } else {
@@ -134,14 +129,50 @@ public class CoreProtectHook {
     }
     
     /**
-     * Проверить, взаимодействовал ли другой игрок с этим блоком
+     * Получить владельца блока (кто его поставил)
      */
-    public CompletableFuture<Boolean> wasModifiedByOther(Location loc, String currentPlayer) {
+    public CompletableFuture<String> getBlockOwner(Location loc) {
+        return CompletableFuture.supplyAsync(() -> {
+            if (!isEnabled()) return null;
+            
+            try {
+                if (blockLookupMethod != null) {
+                    Object result = blockLookupMethod.invoke(coreProtectAPI, loc.getBlock(), 0);
+                    if (result instanceof List) {
+                        @SuppressWarnings("unchecked")
+                        List<String[]> lookup = (List<String[]>) result;
+                        
+                        // Ищем действие PLACE (type=1)
+                        for (String[] row : lookup) {
+                            if (row.length >= 3) {
+                                try {
+                                    int type = Integer.parseInt(row[2]);
+                                    if (type == 1) { // PLACE
+                                        return row[1]; // username
+                                    }
+                                } catch (NumberFormatException e) {
+                                    // Пропускаем
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                plugin.getLogger().warning("Failed to get block owner: " + e.getMessage());
+            }
+            
+            return null;
+        });
+    }
+    
+    /**
+     * Проверить, взаимодействовал ли кто-то кроме владельца и текущего игрока
+     */
+    public CompletableFuture<Boolean> wasModifiedByOther(Location loc, String currentPlayer, String owner) {
         return CompletableFuture.supplyAsync(() -> {
             if (!isEnabled()) return false;
             
             try {
-                // Способ 1: blockLookup (самый точный)
                 if (blockLookupMethod != null) {
                     Object result = blockLookupMethod.invoke(coreProtectAPI, loc.getBlock(), 0);
                     if (result instanceof List) {
@@ -151,48 +182,32 @@ public class CoreProtectHook {
                         for (String[] row : lookup) {
                             if (row.length >= 2) {
                                 String user = row[1];
-                                if (user != null && !user.equalsIgnoreCase(currentPlayer) && !user.equals("#null")) {
-                                    plugin.getLogger().info("Block was modified by " + user + " before " + currentPlayer);
-                                    return true;
-                                }
+                                // Пропускаем текущего игрока
+                                if (user.equalsIgnoreCase(currentPlayer)) continue;
+                                // Пропускаем владельца
+                                if (owner != null && user.equalsIgnoreCase(owner)) continue;
+                                // Пропускаем null
+                                if (user.equals("#null")) continue;
+                                
+                                // Нашли кого-то ещё — значит было взаимодействие
+                                return true;
                             }
                         }
                     }
                 }
-                
-                // Способ 2: performLookup с радиусом 0
-                if (performLookupMethod != null) {
-                    int paramCount = performLookupMethod.getParameterCount();
-                    Object result;
-                    
-                    if (paramCount == 8) {
-                        result = performLookupMethod.invoke(coreProtectAPI,
-                            0, null, null, null, null, null, 0, loc);
-                    } else {
-                        return false;
-                    }
-                    
-                    if (result instanceof List) {
-                        @SuppressWarnings("unchecked")
-                        List<String[]> lookup = (List<String[]>) result;
-                        
-                        for (String[] row : lookup) {
-                            if (row.length >= 2) {
-                                String user = row[1];
-                                if (user != null && !user.equalsIgnoreCase(currentPlayer) && !user.equals("#null")) {
-                                    return true;
-                                }
-                            }
-                        }
-                    }
-                }
-                
             } catch (Exception e) {
                 plugin.getLogger().warning("Failed to check block history: " + e.getMessage());
             }
             
             return false;
         });
+    }
+    
+    /**
+     * Проверить, взаимодействовал ли другой игрок с этим блоком (для обратной совместимости)
+     */
+    public CompletableFuture<Boolean> wasModifiedByOther(Location loc, String currentPlayer) {
+        return wasModifiedByOther(loc, currentPlayer, null);
     }
     
     // ========== СТАТИСТИКА ==========
