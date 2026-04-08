@@ -91,6 +91,8 @@ public class SQLite implements IDatabase {
             
             stmt.execute("CREATE TABLE IF NOT EXISTS cpa_command_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, player_uuid VARCHAR(36), player_name VARCHAR(32), command VARCHAR(64), args TEXT, full_command TEXT, world VARCHAR(64), x DOUBLE, y DOUBLE, z DOUBLE, timestamp BIGINT, is_staff BOOLEAN)");
             
+            stmt.execute("CREATE TABLE IF NOT EXISTS cpa_player_commands (id INTEGER PRIMARY KEY AUTOINCREMENT, player_uuid VARCHAR(36), player_name VARCHAR(32), command VARCHAR(64), args TEXT, full_command TEXT, world VARCHAR(64), x DOUBLE, y DOUBLE, z DOUBLE, timestamp BIGINT, is_staff BOOLEAN)");
+            
             stmt.execute("CREATE TABLE IF NOT EXISTS cpa_super_commands (id INTEGER PRIMARY KEY AUTOINCREMENT, player_uuid VARCHAR(36), player_name VARCHAR(32), command VARCHAR(64), args TEXT, world VARCHAR(64), x DOUBLE, y DOUBLE, z DOUBLE, timestamp BIGINT)");
             
             stmt.execute("CREATE TABLE IF NOT EXISTS cpa_player_sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, player_uuid VARCHAR(36), player_name VARCHAR(32), action VARCHAR(16), world VARCHAR(64), x DOUBLE, y DOUBLE, z DOUBLE, timestamp BIGINT)");
