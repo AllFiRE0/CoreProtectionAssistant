@@ -14,9 +14,11 @@ public class CPAExpansion extends PlaceholderExpansion {
     
     private final CoreProtectionAssistant plugin;
     private final ConcurrentHashMap<String, String> cachedValues = new ConcurrentHashMap<>();
+    private boolean debug;
     
     public CPAExpansion(CoreProtectionAssistant plugin) {
         this.plugin = plugin;
+        this.debug = plugin.getConfigManager().getMainConfig().getBoolean("debug", false);
     }
     
     @Override
@@ -52,12 +54,15 @@ public class CPAExpansion extends PlaceholderExpansion {
         
         UUID uuid = offlinePlayer.getUniqueId();
         
-        // Логируем запрос для отладки
-        plugin.getLogger().info("[PAPI] Request for " + offlinePlayer.getName() + ": " + params);
+        if (debug) {
+            plugin.getLogger().info("[PAPI] Request for " + offlinePlayer.getName() + ": " + params);
+        }
         
         String result = processPlaceholder(uuid, params);
         
-        plugin.getLogger().info("[PAPI] Result: " + (result.isEmpty() ? "<empty>" : result));
+        if (debug) {
+            plugin.getLogger().info("[PAPI] Result: " + (result.isEmpty() ? "<empty>" : result));
+        }
         
         return result;
     }
@@ -96,7 +101,6 @@ public class CPAExpansion extends PlaceholderExpansion {
         // Убираем возможный суффикс с именем игрока
         if (param.contains("_")) {
             String[] parts = param.split("_");
-            // Проверяем, не имя ли игрока в конце
             OfflinePlayer target = Bukkit.getOfflinePlayer(parts[parts.length - 1]);
             if (target != null && target.hasPlayedBefore()) {
                 uuid = target.getUniqueId();
