@@ -56,7 +56,9 @@ public class WarnManager {
                 
                 ps.executeUpdate();
                 
-                plugin.getLogger().info("Warning issued to " + targetName + " by " + staffName + ": " + reason);
+                if (plugin.getConfigManager().getMainConfig().getBoolean("console_logging.warnings", true)) {
+                    plugin.getLogger().info("Warning issued to " + targetName + " by " + staffName + ": " + reason);
+                }
                 
             } catch (SQLException e) {
                 plugin.getLogger().severe("Failed to save warning: " + e.getMessage());
@@ -96,8 +98,10 @@ public class WarnManager {
                 
                 if (updated > 0) {
                     warningsCache.remove(playerUuid);
-                    plugin.getLogger().info("Cleared " + updated + " warnings for " + 
-                        Bukkit.getOfflinePlayer(playerUuid).getName());
+                    if (plugin.getConfigManager().getMainConfig().getBoolean("console_logging.warnings", true)) {
+                        plugin.getLogger().info("Cleared " + updated + " warnings for " + 
+                            Bukkit.getOfflinePlayer(playerUuid).getName());
+                    }
                 }
             } catch (SQLException e) {
                 plugin.getLogger().severe("Failed to clear warnings: " + e.getMessage());
