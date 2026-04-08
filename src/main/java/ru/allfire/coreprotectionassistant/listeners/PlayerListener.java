@@ -20,15 +20,12 @@ public class PlayerListener implements Listener {
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         
-        // Сохраняем вход в основном потоке
         plugin.getDatabaseManager().logPlayerJoin(player);
         
-        // Проверяем запрещенные права АСИНХРОННО
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
             checkProhibitedPermissions(player);
         });
         
-        // Обновляем кэш CoreProtect
         if (plugin.getCoreProtectHook().isEnabled()) {
             plugin.getCoreProtectHook().updatePlayerCache(player.getUniqueId());
         }
@@ -37,8 +34,6 @@ public class PlayerListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
-        
-        // Сохраняем выход
         plugin.getDatabaseManager().logPlayerQuit(player);
     }
     
@@ -52,17 +47,18 @@ public class PlayerListener implements Listener {
             if (player.hasPermission(perm)) {
                 hasProhibited = true;
                 
-                // Логируем
                 plugin.getDatabaseManager().logProhibitedPermission(
                     player.getUniqueId(), perm
                 );
                 
-                plugin.getLogger().warning("Player " + player.getName() + 
-                    " has prohibited permission: " + perm);
+                if (plugin.getConfigManager().getMainConfig()
+                        .getBoolean("console_logging.prohibited_permissions", true)) {
+                    plugin.getLogger().warning("Player " + player.getName() + 
+                        " has prohibited permission: " + perm);
+                }
             }
         }
         
-        // Если есть запрещённые права и игрок - персонал
         if (hasProhibited && player.hasPermission("cpa.staff")) {
             plugin.getAbuseScoreManager().addScore(
                 player.getUniqueId(), 
