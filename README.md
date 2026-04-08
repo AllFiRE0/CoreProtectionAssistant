@@ -181,17 +181,21 @@ grief_detection:
 | `%cpa_player_blocks_broken%` | Total blocks broken |
 | `%cpa_player_blocks_placed%` | Total blocks placed |
 | `%cpa_player_chests_opened%` | Total containers opened |
+| `%cpa_player_commands_count%` | Total commands used (from internal DB) |
 | `%cpa_player_deaths%` | Total deaths |
 | `%cpa_player_kills%` | Total kills |
 | `%cpa_player_first_seen%` | First join date |
 | `%cpa_player_last_seen%` | Last seen date |
 | `%cpa_player_warnings_count%` | Active warnings |
 | `%cpa_player_violations_count%` | Chat violations |
-| `%cpa_player_apologies_count%` | Total apologies (NEW) |
-| `%cpa_player_violations_apologies_ratio%` | Repentance ratio |
+| `%cpa_player_apologies_count%` | Total apologies |
+| `%cpa_player_violations_apologies_ratio%` | Repentance ratio (apologies / violations) |
 | `%cpa_player_time_since_last_violation%` | Seconds since last violation |
 | `%cpa_player_cmd_<command>%` | Usage count of specific command (e.g., `%cpa_player_cmd_tpa%`) |
-| `%cpa_player_commands_count%` | Total commands used (from internal DB) |
+| `%cpa_player_reports_against%` | Total reports received |
+| `%cpa_player_reports_filed%` | Total reports sent |
+| `%cpa_player_reports_<category>%` | Reports received by category (e.g., `%cpa_player_reports_griefing%`) |
+| `%cpa_reports_count_<category>_<player>%` | Reports by category for specific player (e.g., `%cpa_reports_count_griefing_AllF1RE%`) |
 
 ### Staff Statistics
 | Placeholder | Description |
