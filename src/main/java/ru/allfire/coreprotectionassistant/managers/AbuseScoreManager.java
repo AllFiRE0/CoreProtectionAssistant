@@ -3,6 +3,7 @@ package ru.allfire.coreprotectionassistant.managers;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
+import ru.allfire.coreprotectionassistant.config.Lang;
 
 import java.sql.*;
 import java.util.Map;
@@ -21,9 +22,7 @@ public class AbuseScoreManager {
     }
     
     private void loadWeights() {
-        var config = plugin.getConfigManager().getMainConfig()
-            .getConfigurationSection("abuse_weights");
-        
+        var config = plugin.getConfigManager().getMainConfig().getConfigurationSection("abuse_weights");
         if (config != null) {
             for (String key : config.getKeys(false)) {
                 weights.put(key, config.getInt(key, 5));
@@ -34,15 +33,13 @@ public class AbuseScoreManager {
     public int getScore(UUID uuid) {
         return scoreCache.computeIfAbsent(uuid, k -> {
             String sql = "SELECT score FROM cpa_abuse_scores WHERE player_uuid = ?";
-            
             try (Connection conn = plugin.getDatabaseManager().getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
-                
                 ps.setString(1, uuid.toString());
-                ResultSet rs = ps.executeQuery();
-                
-                if (rs.next()) {
-                    return rs.getInt("score");
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getInt("score");
+                    }
                 }
             } catch (SQLException e) {
                 plugin.getLogger().severe("Failed to get abuse score: " + e.getMessage());
@@ -85,8 +82,7 @@ public class AbuseScoreManager {
                     }
                 }
                 
-                plugin.getLogger().info("Added " + weight + " abuse score to " + 
-                    playerName + " (" + reason + "). Total: " + newScore);
+                plugin.getLogger().info("Added " + weight + " abuse score to " + playerName + " (" + reason + "). Total: " + newScore);
                 
             } catch (SQLException e) {
                 plugin.getLogger().severe("Failed to save abuse score: " + e.getMessage());
@@ -101,16 +97,12 @@ public class AbuseScoreManager {
     
     public void resetScore(UUID uuid) {
         scoreCache.put(uuid, 0);
-        
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
             String sql = "UPDATE cpa_abuse_scores SET score = 0, last_updated = ? WHERE player_uuid = ?";
-            
             try (Connection conn = plugin.getDatabaseManager().getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
-                
                 ps.setLong(1, System.currentTimeMillis());
                 ps.setString(2, uuid.toString());
-                
                 ps.executeUpdate();
             } catch (SQLException e) {
                 plugin.getLogger().severe("Failed to reset abuse score: " + e.getMessage());
@@ -119,9 +111,7 @@ public class AbuseScoreManager {
     }
     
     private void checkThresholds(UUID uuid, String playerName, int score) {
-        var warnings = plugin.getConfigManager().getMainConfig()
-            .getConfigurationSection("staff_warnings");
-        
+        var warnings = plugin.getConfigManager().getMainConfig().getConfigurationSection("staff_warnings");
         if (warnings == null) return;
         
         for (String level : warnings.getKeys(false)) {
@@ -140,14 +130,13 @@ public class AbuseScoreManager {
                             .replace("%threshold%", String.valueOf(threshold));
                         
                         if (processed.startsWith("asConsole! ")) {
-                            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), 
-                                processed.substring(11));
+                            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), processed.substring(11));
                         } else if (processed.startsWith("broadcast! ")) {
-                            Bukkit.broadcastMessage(processed.substring(11));
+                            Bukkit.broadcastMessage(Lang.colorize(processed.substring(11)));
                         } else if (processed.startsWith("message! ")) {
                             Player player = Bukkit.getPlayer(uuid);
                             if (player != null) {
-                                player.sendMessage(processed.substring(9));
+                                player.sendMessage(Lang.colorize(processed.substring(9)));
                             }
                         }
                     }
