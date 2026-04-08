@@ -82,7 +82,10 @@ public class AbuseScoreManager {
                     }
                 }
                 
-                plugin.getLogger().info("Added " + weight + " abuse score to " + playerName + " (" + reason + "). Total: " + newScore);
+                if (plugin.getConfigManager().getMainConfig().getBoolean("console_logging.abuse_score", true)) {
+                    plugin.getLogger().info("Added " + weight + " abuse score to " + 
+                        playerName + " (" + reason + "). Total: " + newScore);
+                }
                 
             } catch (SQLException e) {
                 plugin.getLogger().severe("Failed to save abuse score: " + e.getMessage());
