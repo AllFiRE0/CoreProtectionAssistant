@@ -46,6 +46,14 @@ messages:
   grief_staff_suspected: "&c[CPA] Staff member &f%player% &csuspected of griefing!"
   grief_interact: "&7Player &f%player% &7interacted with &f%block% &7owned by &f%owner%"
 
+  # ==========================================
+  # Чат-бот
+  # ==========================================
+  chatbot_triggered: "[ChatBot] Player %player% triggered rule '%rule%'"
+  command_logged: "Player: %player%, Command: %command%, isStaff: %staff%"
+  command_logged_to_db: "Logging to %table%: %command%"
+  stats_commands_reset: "&aСброс статистики %type% для %player%"
+
   # ------------------------------------------
   # Помощь (/cpa help)
   # ------------------------------------------
