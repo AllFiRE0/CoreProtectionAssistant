@@ -49,7 +49,7 @@ public class ResetStatsCommand implements CommandManager.SubCommand {
     @Override
     public boolean execute(CommandSender sender, String[] args) {
         if (args.length < 2) {
-            sender.sendMessage(Lang.colorize("&cUsage: " + getUsage()));
+            Lang.send(sender, "resetstats_usage");
             sender.sendMessage(Lang.colorize("&7Types: " + String.join(", ", VALID_TYPES)));
             return true;
         }
@@ -58,19 +58,19 @@ public class ResetStatsCommand implements CommandManager.SubCommand {
         String type = args[1].toLowerCase();
         
         if (!VALID_TYPES.contains(type)) {
-            sender.sendMessage(Lang.colorize("&cInvalid type. Available: " + String.join(", ", VALID_TYPES)));
+            Lang.send(sender, "resetstats_invalid_type", "types", String.join(", ", VALID_TYPES));
             return true;
         }
         
         OfflinePlayer target = Bukkit.getOfflinePlayer(targetName);
         if (!target.hasPlayedBefore() && !target.isOnline()) {
-            sender.sendMessage(Lang.colorize("&cPlayer not found: " + targetName));
+            Lang.send(sender, "player_not_found", "player", targetName);
             return true;
         }
         
         plugin.getDatabaseManager().resetPlayerStats(target.getUniqueId(), type);
         
-        sender.sendMessage(Lang.colorize("&aReset " + type + " statistics for " + target.getName()));
+        Lang.send(sender, "resetstats_success", "type", type, "player", target.getName());
         plugin.getLogger().info(sender.getName() + " reset " + type + " stats for " + target.getName());
         
         return true;
