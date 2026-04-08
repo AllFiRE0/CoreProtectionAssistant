@@ -112,9 +112,8 @@ public final class CoreProtectionAssistant extends JavaPlugin {
         reportManager = new ReportManager(this);
         chatRuleManager = new ChatRuleManager(this);
         abuseScoreManager = new AbuseScoreManager(this);
-        
-        // Инициализация ChatBotManager
         chatBotManager = new ChatBotManager(this);
+        
         if (chatBotManager.isEnabled()) {
             getLogger().info("§8[§cCoreProtectionAssistant§8] §aChatBot enabled with §f" + 
                 chatBotManager.getRulesCount() + " §arules");
@@ -157,9 +156,11 @@ public final class CoreProtectionAssistant extends JavaPlugin {
         Lang.setLang(configManager.getLangConfig());
         chatRuleManager.loadRules();
         reportManager.reload();
+        
         if (chatBotManager != null) {
             chatBotManager.reload();
         }
+        
         getLogger().info("§8[§cCoreProtectionAssistant§8] §aConfiguration reloaded");
     }
     
