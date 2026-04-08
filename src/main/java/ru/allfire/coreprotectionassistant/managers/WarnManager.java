@@ -3,6 +3,7 @@ package ru.allfire.coreprotectionassistant.managers;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
+import ru.allfire.coreprotectionassistant.config.Lang;
 import ru.allfire.coreprotectionassistant.models.StaffWarning;
 import ru.allfire.coreprotectionassistant.utils.Color;
 import ru.allfire.coreprotectionassistant.utils.CommandExecutor;
@@ -28,24 +29,12 @@ public class WarnManager {
         long now = System.currentTimeMillis();
         long expiresAt = durationTicks > 0 ? now + (durationTicks * 50) : 0;
         
-        StaffWarning warning = StaffWarning.builder()
-            .playerUuid(targetUuid)
-            .playerName(targetName)
-            .staffUuid(staffUuid)
-            .staffName(staffName)
-            .reason(reason)
-            .active(true)
-            .createdAt(now)
-            .expiresAt(expiresAt)
-            .build();
+        StaffWarning warning = new StaffWarning(
+            0, targetUuid, targetName, staffUuid, staffName, reason, true, now, expiresAt, 0, null
+        );
         
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
-            String sql = """
-                INSERT INTO cpa_warnings 
-                (player_uuid, player_name, staff_uuid, staff_name, reason, 
-                 active, created_at, expires_at) 
-                VALUES (?, ?, ?, ?, ?, 1, ?, ?)
-            """;
+            String sql = "INSERT INTO cpa_warnings (player_uuid, player_name, staff_uuid, staff_name, reason, active, created_at, expires_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?)";
             
             try (Connection conn = plugin.getDatabaseManager().getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -71,9 +60,9 @@ public class WarnManager {
         
         Player target = Bukkit.getPlayer(targetUuid);
         if (target != null && target.isOnline()) {
-            String msg = plugin.getConfigManager().getLangConfig()
-                .getString("messages.warn_notify_target", 
-                    "%prefix% &cYou received a warning from &f%staff%&c. &7(%reason%)")
+            String prefix = Lang.getPrefix();
+            String msg = Lang.get("warn_notify_target")
+                .replace("%prefix%", prefix)
                 .replace("%staff%", staffName)
                 .replace("%reason%", reason);
             target.sendMessage(Color.colorize(msg));
@@ -86,12 +75,7 @@ public class WarnManager {
     
     public void clearWarnings(UUID playerUuid, int amount, String clearedBy) {
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
-            String sql = """
-                UPDATE cpa_warnings 
-                SET active = 0, cleared_at = ?, cleared_by = ? 
-                WHERE player_uuid = ? AND active = 1 
-                ORDER BY created_at ASC LIMIT ?
-            """;
+            String sql = "UPDATE cpa_warnings SET active = 0, cleared_at = ?, cleared_by = ? WHERE player_uuid = ? AND active = 1 ORDER BY created_at ASC LIMIT ?";
             
             try (Connection conn = plugin.getDatabaseManager().getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -143,11 +127,7 @@ public class WarnManager {
             }
             
             List<StaffWarning> warnings = new ArrayList<>();
-            String sql = """
-                SELECT * FROM cpa_warnings 
-                WHERE player_uuid = ? AND active = 1 
-                ORDER BY created_at DESC
-            """;
+            String sql = "SELECT * FROM cpa_warnings WHERE player_uuid = ? AND active = 1 ORDER BY created_at DESC";
             
             try (Connection conn = plugin.getDatabaseManager().getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -156,19 +136,19 @@ public class WarnManager {
                 ResultSet rs = ps.executeQuery();
                 
                 while (rs.next()) {
-                    StaffWarning warning = StaffWarning.builder()
-                        .id(rs.getLong("id"))
-                        .playerUuid(UUID.fromString(rs.getString("player_uuid")))
-                        .playerName(rs.getString("player_name"))
-                        .staffUuid(rs.getString("staff_uuid") != null ? 
-                            UUID.fromString(rs.getString("staff_uuid")) : null)
-                        .staffName(rs.getString("staff_name"))
-                        .reason(rs.getString("reason"))
-                        .active(rs.getBoolean("active"))
-                        .createdAt(rs.getLong("created_at"))
-                        .expiresAt(rs.getLong("expires_at"))
-                        .build();
-                    
+                    StaffWarning warning = new StaffWarning(
+                        rs.getLong("id"),
+                        UUID.fromString(rs.getString("player_uuid")),
+                        rs.getString("player_name"),
+                        rs.getString("staff_uuid") != null ? UUID.fromString(rs.getString("staff_uuid")) : null,
+                        rs.getString("staff_name"),
+                        rs.getString("reason"),
+                        rs.getBoolean("active"),
+                        rs.getLong("created_at"),
+                        rs.getLong("expires_at"),
+                        rs.getLong("cleared_at"),
+                        rs.getString("cleared_by")
+                    );
                     warnings.add(warning);
                 }
             } catch (SQLException e) {
@@ -185,9 +165,7 @@ public class WarnManager {
             return;
         }
         
-        var checks = plugin.getConfigManager().getMainConfig()
-            .getConfigurationSection("warn_clear.checks");
-        
+        var checks = plugin.getConfigManager().getMainConfig().getConfigurationSection("warn_clear.checks");
         if (checks == null) return;
         
         for (String checkName : checks.getKeys(false)) {
@@ -210,9 +188,7 @@ public class WarnManager {
     private void checkStaffWarningThreshold(UUID staffUuid, String staffName) {
         int abuseScore = plugin.getAbuseScoreManager().getScore(staffUuid);
         
-        var warnings = plugin.getConfigManager().getMainConfig()
-            .getConfigurationSection("staff_warnings");
-        
+        var warnings = plugin.getConfigManager().getMainConfig().getConfigurationSection("staff_warnings");
         if (warnings == null) return;
         
         for (String level : warnings.getKeys(false)) {
