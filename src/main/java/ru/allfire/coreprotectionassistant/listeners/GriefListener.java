@@ -50,11 +50,11 @@ public class GriefListener implements Listener {
             return;
         }
         
-        // Используем CoreProtectHook (API) вместо прямого чтения БД
+        // Используем CoreProtectHook (API)
         var hook = plugin.getCoreProtectHook();
         if (hook == null || !hook.isEnabled()) return;
         
-        // Проверяем, взаимодействовал ли кто-то ещё с этим блоком
+        // Проверяем через API
         hook.wasModifiedByOther(block.getLocation(), player.getName()).thenAccept(wasModified -> {
             if (wasModified) {
                 lastGriefTime.put(player.getUniqueId(), now);
@@ -65,7 +65,7 @@ public class GriefListener implements Listener {
                 // Сохраняем в нашу БД
                 plugin.getDatabaseManager().logGriefAction(player, block);
                 
-                // Выбираем команды в зависимости от того, персонал это или нет
+                // Выбираем команды
                 List<String> commands;
                 if (player.hasPermission("cpa.staff")) {
                     commands = plugin.getConfigManager().getMainConfig()
