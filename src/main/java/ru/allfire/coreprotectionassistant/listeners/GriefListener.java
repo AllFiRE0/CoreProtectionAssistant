@@ -47,32 +47,43 @@ public class GriefListener implements Listener {
         var hook = plugin.getCoreProtectHook();
         if (hook == null || !hook.isEnabled()) return;
         
-        hook.wasModifiedByOther(block.getLocation(), player.getName()).thenAccept(wasModified -> {
-            if (wasModified) {
-                lastGriefTime.put(player.getUniqueId(), now);
-                plugin.getLogger().warning("Possible grief: " + player.getName() + " broke " + blockType);
-                plugin.getDatabaseManager().logGriefAction(player, block);
-                
-                List<String> commands = player.hasPermission("cpa.staff") ?
-                    config.getStringList("grief_detection.staff_grief_commands") :
-                    config.getStringList("grief_detection.grief_commands");
-                
-                for (String cmd : commands) {
-                    String processed = cmd
-                        .replace("%player_name%", player.getName())
-                        .replace("%world%", block.getWorld().getName())
-                        .replace("%x%", String.valueOf(block.getX()))
-                        .replace("%y%", String.valueOf(block.getY()))
-                        .replace("%z%", String.valueOf(block.getZ()))
-                        .replace("%block%", blockType);
-                    CommandExecutor.execute(plugin, player, null, processed);
-                }
-                
-                if (player.hasPermission("cpa.staff")) {
-                    plugin.getAbuseScoreManager().addScore(player.getUniqueId(), "griefing", 
-                        config.getInt("grief_detection.abuse_weight", 10));
-                }
+        // Получаем полную историю блока и находим владельца (кто поставил)
+        hook.getBlockOwner(block.getLocation()).thenAccept(owner -> {
+            // Если владелец не найден или это сам игрок — не гриф
+            if (owner == null || owner.equalsIgnoreCase(player.getName())) {
+                plugin.getLogger().info("Block broken by owner or unknown: " + player.getName());
+                return;
             }
+            
+            // Проверяем, взаимодействовал ли кто-то ЕЩЁ кроме владельца и текущего игрока
+            hook.wasModifiedByOther(block.getLocation(), player.getName(), owner).thenAccept(wasModified -> {
+                if (wasModified) {
+                    lastGriefTime.put(player.getUniqueId(), now);
+                    plugin.getLogger().warning("Possible grief: " + player.getName() + " broke " + blockType + " owned by " + owner);
+                    plugin.getDatabaseManager().logGriefAction(player, block);
+                    
+                    List<String> commands = player.hasPermission("cpa.staff") ?
+                        config.getStringList("grief_detection.staff_grief_commands") :
+                        config.getStringList("grief_detection.grief_commands");
+                    
+                    for (String cmd : commands) {
+                        String processed = cmd
+                            .replace("%player_name%", player.getName())
+                            .replace("%world%", block.getWorld().getName())
+                            .replace("%x%", String.valueOf(block.getX()))
+                            .replace("%y%", String.valueOf(block.getY()))
+                            .replace("%z%", String.valueOf(block.getZ()))
+                            .replace("%block%", blockType)
+                            .replace("%owner%", owner);
+                        CommandExecutor.execute(plugin, player, null, processed);
+                    }
+                    
+                    if (player.hasPermission("cpa.staff")) {
+                        plugin.getAbuseScoreManager().addScore(player.getUniqueId(), "griefing", 
+                            config.getInt("grief_detection.abuse_weight", 10));
+                    }
+                }
+            });
         });
     }
     
@@ -95,18 +106,26 @@ public class GriefListener implements Listener {
         
         long now = System.currentTimeMillis();
         Long lastTime = lastInteractTime.get(player.getUniqueId());
-        if (lastTime != null && (now - lastTime) < 2000) return; // 2 сек кулдаун
+        if (lastTime != null && (now - lastTime) < 2000) return;
         
         var hook = plugin.getCoreProtectHook();
         if (hook == null || !hook.isEnabled()) return;
         
-        hook.wasModifiedByOther(block.getLocation(), player.getName()).thenAccept(wasModified -> {
-            if (wasModified) {
-                lastInteractTime.put(player.getUniqueId(), now);
-                plugin.getLogger().info("Player " + player.getName() + " interacted with " + 
-                    blockType + " placed/modified by another player");
-                // Можно добавить логирование в БД или лёгкое предупреждение
+        // Проверяем, не владелец ли это
+        hook.getBlockOwner(block.getLocation()).thenAccept(owner -> {
+            // Если это владелец — не логируем
+            if (owner != null && owner.equalsIgnoreCase(player.getName())) {
+                return;
             }
+            
+            // Проверяем, взаимодействовал ли кто-то ещё
+            hook.wasModifiedByOther(block.getLocation(), player.getName(), owner).thenAccept(wasModified -> {
+                if (wasModified) {
+                    lastInteractTime.put(player.getUniqueId(), now);
+                    plugin.getLogger().info("Player " + player.getName() + " interacted with " + 
+                        blockType + " owned by " + (owner != null ? owner : "unknown"));
+                }
+            });
         });
     }
     
