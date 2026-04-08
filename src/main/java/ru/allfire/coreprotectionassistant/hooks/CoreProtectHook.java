@@ -55,6 +55,12 @@ public class CoreProtectHook {
                 if (method.getName().equals("performLookup")) {
                     performLookupMethod = method;
                     plugin.getLogger().info("Found performLookup with " + method.getParameterCount() + " parameters");
+                    
+                    // Выводим типы параметров для отладки
+                    Class<?>[] paramTypes = method.getParameterTypes();
+                    for (int i = 0; i < paramTypes.length; i++) {
+                        plugin.getLogger().info("  param[" + i + "]: " + paramTypes[i].getName());
+                    }
                     break;
                 }
             }
@@ -101,15 +107,34 @@ public class CoreProtectHook {
         try {
             Object result = null;
             int paramCount = performLookupMethod.getParameterCount();
+            Class<?>[] paramTypes = performLookupMethod.getParameterTypes();
             
-            if (paramCount == 8) {
-                // API v10/v11
+            // Определяем тип второго параметра
+            boolean secondParamIsInt = false;
+            if (paramTypes.length > 1) {
+                secondParamIsInt = paramTypes[1] == int.class || paramTypes[1] == Integer.class;
+            }
+            
+            if (paramCount == 8 && !secondParamIsInt) {
+                // API v10/v11: (int, List, List, List, List, List, int, Location)
                 result = performLookupMethod.invoke(coreProtectAPI,
                     timeSeconds, users, null, null, null, actions, 0, null);
+                    
+            } else if (paramCount == 8 && secondParamIsInt) {
+                // Альтернативная сигнатура
+                result = performLookupMethod.invoke(coreProtectAPI,
+                    100000, timeSeconds, users, null, null, actions, 0, null);
+                    
             } else if (paramCount == 6) {
                 // Старая версия
                 result = performLookupMethod.invoke(coreProtectAPI,
                     100000, timeSeconds > 0 ? List.of(timeSeconds) : null, users, actions, null, null);
+                    
+            } else if (paramCount == 7) {
+                // Ещё один вариант
+                result = performLookupMethod.invoke(coreProtectAPI,
+                    timeSeconds, users, null, null, actions, 0, null);
+                    
             } else {
                 plugin.getLogger().warning("Unknown performLookup signature with " + paramCount + " parameters");
                 return List.of();
@@ -267,30 +292,6 @@ public class CoreProtectHook {
         });
     }
     
-    public CompletableFuture<Integer> getCommandsUsed(UUID uuid, long since) {
-        return CompletableFuture.supplyAsync(() -> {
-            String playerName = getPlayerName(uuid);
-            if (playerName == null) return 0;
-            return performLookup(0, List.of(playerName), List.of(3)).size();
-        });
-    }
-    
-    public CompletableFuture<Integer> getDeaths(UUID uuid, long since) {
-        return CompletableFuture.supplyAsync(() -> {
-            String playerName = getPlayerName(uuid);
-            if (playerName == null) return 0;
-            return performLookup(0, List.of("#" + playerName), List.of(5)).size();
-        });
-    }
-    
-    public CompletableFuture<Integer> getKills(UUID uuid, long since) {
-        return CompletableFuture.supplyAsync(() -> {
-            String playerName = getPlayerName(uuid);
-            if (playerName == null) return 0;
-            return performLookup(0, List.of(playerName), List.of(5)).size();
-        });
-    }
-    
     public CompletableFuture<Long> getFirstSeen(UUID uuid) {
         return CompletableFuture.supplyAsync(() -> {
             String playerName = getPlayerName(uuid);
@@ -320,6 +321,26 @@ public class CoreProtectHook {
             }
             return 0L;
         });
+    }
+    
+    public CompletableFuture<Integer> getDeaths(UUID uuid, long since) {
+        return CompletableFuture.supplyAsync(() -> {
+            String playerName = getPlayerName(uuid);
+            if (playerName == null) return 0;
+            return performLookup(0, List.of("#" + playerName), List.of(5)).size();
+        });
+    }
+    
+    public CompletableFuture<Integer> getKills(UUID uuid, long since) {
+        return CompletableFuture.supplyAsync(() -> {
+            String playerName = getPlayerName(uuid);
+            if (playerName == null) return 0;
+            return performLookup(0, List.of(playerName), List.of(5)).size();
+        });
+    }
+    
+    public CompletableFuture<Integer> getCommandsUsed(UUID uuid, long since) {
+        return CompletableFuture.supplyAsync(() -> 0);
     }
     
     private String getPlayerName(UUID uuid) {
