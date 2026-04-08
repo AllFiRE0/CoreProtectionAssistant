@@ -7,6 +7,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.server.ServerCommandEvent;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
+import ru.allfire.coreprotectionassistant.config.Lang;
 
 import java.util.Arrays;
 import java.util.List;
@@ -37,23 +38,20 @@ public class CommandListener implements Listener {
         
         Player player = event.getPlayer();
         String message = event.getMessage();
-        
-        // Извлекаем полную команду (включая префикс плагина)
         String fullCommand = extractFullCommand(message);
-        
-        // Извлекаем только название команды (без префикса)
         String command = extractCommand(message);
-        
         String[] args = extractArgs(message);
         
         boolean isStaff = player.hasPermission("cpa.staff") || player.hasPermission("cpa.moder");
         
         if (debug) {
-            plugin.getLogger().info("[CommandListener] Player: " + player.getName() + 
-                ", Full command: " + fullCommand + ", Command: " + command + ", isStaff: " + isStaff);
+            String msg = Lang.get("command_logged")
+                .replace("%player%", player.getName())
+                .replace("%command%", fullCommand)
+                .replace("%staff%", String.valueOf(isStaff));
+            plugin.getLogger().info(Lang.colorize(msg));
         }
         
-        // Проверяем, нужно ли логировать (по полной команде или только по названию)
         boolean shouldLog = false;
         
         if (isStaff) {
@@ -66,14 +64,16 @@ public class CommandListener implements Listener {
         
         if (shouldLog) {
             if (debug) {
-                plugin.getLogger().info("[CommandListener] Logging: " + fullCommand);
+                String msg = Lang.get("command_logged_to_db")
+                    .replace("%table%", "cpa_player_commands")
+                    .replace("%command%", fullCommand);
+                plugin.getLogger().info(Lang.colorize(msg));
             }
             
-            // Логируем в cpa_player_commands
             plugin.getDatabaseManager().logPlayerCommand(
                 player.getUniqueId(),
                 player.getName(),
-                fullCommand,  // Сохраняем полную команду (cmi give)
+                fullCommand,
                 args,
                 message,
                 player.getWorld().getName(),
@@ -83,7 +83,6 @@ public class CommandListener implements Listener {
                 isStaff
             );
             
-            // Для персонала логируем в cpa_staff_actions
             if (isStaff) {
                 plugin.getDatabaseManager().logStaffAction(
                     player.getUniqueId(),
@@ -101,7 +100,6 @@ public class CommandListener implements Listener {
             }
         }
         
-        // Проверяем супер-команды
         checkSuperCommand(player, fullCommand, args);
     }
     
@@ -129,13 +127,8 @@ public class CommandListener implements Listener {
         }
     }
     
-    /**
-     * Извлекает полную команду с префиксом плагина (например, "cmi give")
-     */
     private String extractFullCommand(String message) {
-        // Убираем начальный слэш
         String cmd = message.substring(1).split(" ")[0];
-        // Если есть второй аргумент (подкоманда), добавляем его
         String[] parts = message.substring(1).split(" ");
         if (parts.length > 1) {
             return cmd + " " + parts[1];
@@ -143,16 +136,11 @@ public class CommandListener implements Listener {
         return cmd;
     }
     
-    /**
-     * Извлекает только название команды (например, "give" из "cmi give")
-     */
     private String extractCommand(String message) {
         String full = extractFullCommand(message);
-        // Если есть пробел, берём вторую часть
         if (full.contains(" ")) {
             return full.split(" ")[1];
         }
-        // Если есть двоеточие (cmi:give)
         if (full.contains(":")) {
             return full.split(":")[1];
         }
