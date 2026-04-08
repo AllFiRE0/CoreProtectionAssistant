@@ -238,6 +238,47 @@ reports:
 # взаимодействовал ли кто-то другой с блоком перед текущим игроком.
 # Если да - это считается возможным грифом.
 # ============================================
+# Детекция включена в регионах
+grief_detection:
+  enabled: true
+  # Регионы WorldGuard, в которых РАБОТАЕТ антигриф-защита
+  # Если список пуст - работает ВЕЗДЕ (кроме защищённых регионов)
+  # Пример: ["__global__", "dungeon", "arena"]
+  allowed_regions:
+    - "__global__"
+    #- "dungeon"
+  tracked_blocks:
+    - "CHEST"                 # Сундук
+    - "TRAPPED_CHEST"         # Сундук-ловушка
+    - "FURNACE"               # Печь
+    - "BLAST_FURNACE"         # Плавильная печь
+    - "SMOKER"                # Коптильня
+    - "BARREL"                # Бочка
+    - "SHULKER_BOX"           # Шалкеровый ящик (любого цвета)
+    - "WHITE_SHULKER_BOX"     # Белый шалкер
+    - "ORANGE_SHULKER_BOX"    # Оранжевый шалкер
+    - "MAGENTA_SHULKER_BOX"   # Пурпурный шалкер
+    - "LIGHT_BLUE_SHULKER_BOX" # Голубой шалкер
+    - "YELLOW_SHULKER_BOX"    # Жёлтый шалкер
+    - "LIME_SHULKER_BOX"      # Лаймовый шалкер
+    - "PINK_SHULKER_BOX"      # Розовый шалкер
+    - "GRAY_SHULKER_BOX"      # Серый шалкер
+    - "LIGHT_GRAY_SHULKER_BOX" # Светло-серый шалкер
+    - "CYAN_SHULKER_BOX"      # Бирюзовый шалкер
+    - "PURPLE_SHULKER_BOX"    # Фиолетовый шалкер
+    - "BLUE_SHULKER_BOX"      # Синий шалкер
+    - "BROWN_SHULKER_BOX"     # Коричневый шалкер
+    - "GREEN_SHULKER_BOX"     # Зелёный шалкер
+    - "RED_SHULKER_BOX"       # Красный шалкер
+    - "BLACK_SHULKER_BOX"     # Чёрный шалкер
+    - "HOPPER"                # Воронка
+    - "DISPENSER"             # Раздатчик
+    - "DROPPER"               # Выбрасыватель
+    - "BREWING_STAND"         # Зельеварка
+    - "ENCHANTING_TABLE"      # Стол зачарований
+    - "ANVIL"                 # Наковальня
+    - "BEACON"                # Маяк
+# ============================================
 grief_detection:
   # Включить детекцию гриферства
   enabled: true
