@@ -28,6 +28,7 @@ public class ChatBotManager implements Listener {
     private final Random random = new Random();
     
     private boolean enabled;
+    private boolean debug;
     private String globalPermission;
     private long globalCooldownTicks;
     private boolean logTriggers;
@@ -46,7 +47,6 @@ public class ChatBotManager implements Listener {
     public void loadConfig() {
         rules.clear();
         
-        // Загружаем конфиг из ФАЙЛА, а не из ресурсов
         File configFile = new File(plugin.getDataFolder(), "chatbot.yml");
         if (!configFile.exists()) {
             plugin.saveResource("chatbot.yml", false);
@@ -55,16 +55,23 @@ public class ChatBotManager implements Listener {
         FileConfiguration config = YamlConfiguration.loadConfiguration(configFile);
         
         enabled = config.getBoolean("enabled", false);
+        debug = config.getBoolean("debug", false);
         globalPermission = config.getString("permission_usage", "");
         globalCooldownTicks = config.getLong("global_cooldown_ticks", 120);
-        logTriggers = config.getBoolean("log_triggers", true);
+        logTriggers = config.getBoolean("log_triggers", false);
         maxMessageLength = config.getInt("max_message_length", 256);
         excludedPermissions = config.getStringList("exclusions.permissions");
         excludedPlayers = config.getStringList("exclusions.players");
         
+        if (debug) {
+            plugin.getLogger().info("§e[ChatBot] Debug mode ENABLED");
+        }
+        
         ConfigurationSection rulesSection = config.getConfigurationSection("rules");
         if (rulesSection == null) {
-            plugin.getLogger().warning("§c[ChatBot] No rules section found in chatbot.yml");
+            if (debug) {
+                plugin.getLogger().warning("§c[ChatBot] No rules section found in chatbot.yml");
+            }
             return;
         }
         
@@ -97,7 +104,13 @@ public class ChatBotManager implements Listener {
         }
         
         rules.sort((a, b) -> Integer.compare(b.priority, a.priority));
-        plugin.getLogger().info("§a[ChatBot] Loaded " + rules.size() + " rules from file");
+        
+        if (debug) {
+            plugin.getLogger().info("§a[ChatBot] Loaded " + rules.size() + " rules");
+            for (BotRule rule : rules) {
+                plugin.getLogger().info("§a[ChatBot]   - " + rule.name + " (symbol: '" + rule.symbol + "', regex: " + rule.pattern + ")");
+            }
+        }
     }
     
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -106,30 +119,64 @@ public class ChatBotManager implements Listener {
         
         Player player = event.getPlayer();
         
-        if (isExcluded(player)) return;
-        if (!globalPermission.isEmpty() && !player.hasPermission(globalPermission)) return;
+        if (isExcluded(player)) {
+            if (debug) plugin.getLogger().info("§c[ChatBot] Player " + player.getName() + " is excluded");
+            return;
+        }
+        
+        if (!globalPermission.isEmpty() && !player.hasPermission(globalPermission)) {
+            if (debug) plugin.getLogger().info("§c[ChatBot] Player " + player.getName() + " lacks permission: " + globalPermission);
+            return;
+        }
         
         String message = PlainTextComponentSerializer.plainText().serialize(event.message());
-        if (message.length() > maxMessageLength) return;
+        
+        if (debug) {
+            plugin.getLogger().info("§e[ChatBot] Received from " + player.getName() + ": '" + message + "'");
+        }
+        
+        if (message.length() > maxMessageLength) {
+            if (debug) plugin.getLogger().info("§c[ChatBot] Message too long: " + message.length() + " > " + maxMessageLength);
+            return;
+        }
         
         Long lastGlobal = lastTriggerTime.get(player.getUniqueId());
         long now = System.currentTimeMillis();
         
         if (lastGlobal != null) {
             long ticksPassed = (now - lastGlobal) / 50;
-            if (ticksPassed < globalCooldownTicks) return;
+            if (ticksPassed < globalCooldownTicks) {
+                if (debug) plugin.getLogger().info("§c[ChatBot] Global cooldown active: " + ticksPassed + " < " + globalCooldownTicks);
+                return;
+            }
         }
         
         for (BotRule rule : rules) {
-            if (!rule.permission.isEmpty() && !player.hasPermission(rule.permission)) continue;
-            if (!rule.symbol.isEmpty() && !message.startsWith(rule.symbol)) continue;
+            if (debug) plugin.getLogger().info("§b[ChatBot] Checking rule: " + rule.name);
+            
+            if (!rule.permission.isEmpty() && !player.hasPermission(rule.permission)) {
+                if (debug) plugin.getLogger().info("§c[ChatBot]   -> No permission: " + rule.permission);
+                continue;
+            }
+            
+            if (!rule.symbol.isEmpty() && !message.startsWith(rule.symbol)) {
+                if (debug) plugin.getLogger().info("§c[ChatBot]   -> Symbol mismatch: expected '" + rule.symbol + "'");
+                continue;
+            }
             
             String checkMessage = rule.symbol.isEmpty() ? message : message.substring(rule.symbol.length());
-            if (!rule.pattern.matcher(checkMessage).find()) continue;
+            
+            if (!rule.pattern.matcher(checkMessage).find()) {
+                if (debug) plugin.getLogger().info("§c[ChatBot]   -> Regex mismatch");
+                continue;
+            }
             
             if (!rule.conditions.isEmpty()) {
                 String processedCondition = rule.conditions.replace("{player}", player.getName());
-                if (!ConditionParser.evaluate(plugin, player, processedCondition)) continue;
+                if (!ConditionParser.evaluate(plugin, player, processedCondition)) {
+                    if (debug) plugin.getLogger().info("§c[ChatBot]   -> Condition failed: " + rule.conditions);
+                    continue;
+                }
             }
             
             Map<String, Long> playerCooldowns = ruleCooldowns.computeIfAbsent(
@@ -139,14 +186,22 @@ public class ChatBotManager implements Listener {
             Long lastRule = playerCooldowns.get(rule.name);
             if (lastRule != null && rule.cooldownTicks > 0) {
                 long ticksPassed = (now - lastRule) / 50;
-                if (ticksPassed < rule.cooldownTicks) continue;
+                if (ticksPassed < rule.cooldownTicks) {
+                    if (debug) plugin.getLogger().info("§c[ChatBot]   -> Rule cooldown active");
+                    continue;
+                }
             }
             
-            if (rule.chance < 100 && random.nextInt(100) >= rule.chance) continue;
+            if (rule.chance < 100 && random.nextInt(100) >= rule.chance) {
+                if (debug) plugin.getLogger().info("§c[ChatBot]   -> Chance failed (" + rule.chance + "%)");
+                continue;
+            }
+            
+            if (debug) plugin.getLogger().info("§a[ChatBot]   -> RULE MATCHED! Executing...");
             
             if (logTriggers) {
                 plugin.getLogger().info("[ChatBot] Player " + player.getName() + 
-                    " triggered rule '" + rule.name + "': " + message);
+                    " triggered rule '" + rule.name + "'");
             }
             
             final List<String> cmdsToExecute;
@@ -192,7 +247,9 @@ public class ChatBotManager implements Listener {
     
     public void reload() {
         loadConfig();
-        plugin.getLogger().info("§a[ChatBot] Reloaded " + rules.size() + " rules");
+        if (!debug) {
+            // Тишина при reload если debug выключен
+        }
     }
     
     public boolean isEnabled() {
