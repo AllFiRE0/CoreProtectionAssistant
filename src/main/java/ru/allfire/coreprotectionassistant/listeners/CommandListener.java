@@ -15,11 +15,15 @@ import java.util.List;
 public class CommandListener implements Listener {
     
     private final CoreProtectionAssistant plugin;
-    private final List<String> trackedModerCommands;
-    private final List<String> trackedPlayerCommands;
+    private List<String> trackedModerCommands;
+    private List<String> trackedPlayerCommands;
     
     public CommandListener(CoreProtectionAssistant plugin) {
         this.plugin = plugin;
+        reloadConfig();
+    }
+    
+    public void reloadConfig() {
         this.trackedModerCommands = plugin.getConfigManager().getMainConfig()
             .getStringList("tracked_moder_commands");
         this.trackedPlayerCommands = plugin.getConfigManager().getMainConfig()
@@ -45,30 +49,28 @@ public class CommandListener implements Listener {
         }
         
         if (shouldLog) {
-            CommandLog log = CommandLog.builder()
-                .playerUuid(player.getUniqueId())
-                .playerName(player.getName())
-                .command(command)
-                .args(args)
-                .fullCommand(message)
-                .world(player.getWorld().getName())
-                .x(player.getLocation().getX())
-                .y(player.getLocation().getY())
-                .z(player.getLocation().getZ())
-                .timestamp(System.currentTimeMillis())
-                .isStaff(player.hasPermission("cpa.staff"))
-                .build();
+            // Сохраняем в нашу БД
+            plugin.getDatabaseManager().logPlayerCommand(
+                player.getUniqueId(),
+                player.getName(),
+                command,
+                args,
+                message,
+                player.getWorld().getName(),
+                player.getLocation().getX(),
+                player.getLocation().getY(),
+                player.getLocation().getZ(),
+                player.hasPermission("cpa.staff")
+            );
             
-            plugin.getDatabaseManager().saveCommandLog(log);
+            // Дополнительно логируем действия персонала в staff_actions
+            if (player.hasPermission("cpa.staff")) {
+                plugin.getStaffManager().processStaffCommand(player, command, args);
+            }
         }
         
         // Проверяем супер-команды
         checkSuperCommand(player, command, args);
-        
-        // Проверяем действия персонала
-        if (player.hasPermission("cpa.staff")) {
-            plugin.getStaffManager().processStaffCommand(player, command, args);
-        }
     }
     
     @EventHandler(priority = EventPriority.MONITOR)
@@ -80,21 +82,16 @@ public class CommandListener implements Listener {
         
         // Логируем команды консоли
         if (trackedModerCommands.contains(command.toLowerCase())) {
-            CommandLog log = CommandLog.builder()
-                .playerUuid(null)
-                .playerName("CONSOLE")
-                .command(command)
-                .args(extractArgs(message))
-                .fullCommand(message)
-                .world("N/A")
-                .x(0)
-                .y(0)
-                .z(0)
-                .timestamp(System.currentTimeMillis())
-                .isStaff(true)
-                .build();
-            
-            plugin.getDatabaseManager().saveCommandLog(log);
+            plugin.getDatabaseManager().logPlayerCommand(
+                null,
+                "CONSOLE",
+                command,
+                extractArgs(message),
+                message,
+                "N/A",
+                0, 0, 0,
+                true
+            );
         }
     }
     
