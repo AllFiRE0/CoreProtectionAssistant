@@ -222,23 +222,24 @@ Supports both **SQLite** (default) and **MySQL**.
 ---
 
 ❓ FAQ
-Q: Why "zero-trust"?
-A: The plugin assumes staff members might abuse their powers. It tracks everything and calculates an abuse score to alert owners.
 
-Q: Does it work without CoreProtect?
-A: Yes, but block/chest/command statistics and grief detection will be unavailable.
+  Q: Why "zero-trust"?
+  A: The plugin assumes staff members might abuse their powers. It tracks everything and calculates an abuse score to alert owners.
 
-Q: Can I customize the abuse score weights?
-A: Yes, in config.yml under abuse_weights.
+  Q: Does it work without CoreProtect?
+  A: Yes, but block/chest/command statistics and grief detection will be unavailable.
 
-Q: How do I add new chat rules?
-A: Edit chattrules.yml and use /cpa reload.
+  Q: Can I customize the abuse score weights?
+  A: Yes, in config.yml under abuse_weights.
 
-Q: What is "recidivism"?
-A: Repeated violations within a time window result in harsher punishments.
+  Q: How do I add new chat rules?
+  A: Edit chattrules.yml and use /cpa reload.
 
-Q: How do I disable a specific message?
-A: Set it to "" or "none" in lang.yml.
+  Q: What is "recidivism"?
+  A: Repeated violations within a time window result in harsher punishments.
+
+  Q: How do I disable a specific message?
+  A: Set it to "" or "none" in lang.yml.
 
 ```bash
 # Clone repository
