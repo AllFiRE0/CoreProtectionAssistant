@@ -3,6 +3,7 @@ package ru.allfire.coreprotectionassistant.managers;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
+import ru.allfire.coreprotectionassistant.config.Lang;
 
 import java.sql.*;
 import java.util.*;
@@ -49,8 +50,11 @@ public class StaffManager {
                 ps.executeUpdate();
                 
                 if (plugin.getConfigManager().getMainConfig().getBoolean("console_logging.staff_commands", true)) {
-                    plugin.getLogger().info("Staff " + staff.getName() + " used /" + action + 
-                        (target != null ? " on " + target : ""));
+                    String msg = Lang.get("staff_command_logged")
+                        .replace("%staff%", staff.getName())
+                        .replace("%action%", action)
+                        .replace("%target%", target != null ? " on " + target : "");
+                    plugin.getLogger().info(Lang.colorize(msg));
                 }
                 
                 StaffStats stats = statsCache.computeIfAbsent(
