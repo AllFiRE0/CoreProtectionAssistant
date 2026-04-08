@@ -3,7 +3,6 @@ package ru.allfire.coreprotectionassistant.managers;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
-import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -122,7 +121,7 @@ public class ChatBotManager implements Listener {
             String checkMessage = rule.symbol.isEmpty() ? message : message.substring(rule.symbol.length());
             if (!rule.pattern.matcher(checkMessage).find()) continue;
             
-            // Проверка условий с поддержкой {player}
+            // Проверка условий
             if (!rule.conditions.isEmpty()) {
                 String processedCondition = rule.conditions.replace("{player}", player.getName());
                 if (!ConditionParser.evaluate(plugin, player, processedCondition)) continue;
@@ -148,9 +147,11 @@ public class ChatBotManager implements Listener {
             }
             
             // Выбираем команды (основные или случайные)
-            List<String> cmdsToExecute = new ArrayList<>(rule.answerCmds);
+            final List<String> cmdsToExecute;
             if (!rule.answerCmdsRandom.isEmpty() && random.nextBoolean()) {
-                cmdsToExecute = rule.answerCmdsRandom;
+                cmdsToExecute = new ArrayList<>(rule.answerCmdsRandom);
+            } else {
+                cmdsToExecute = new ArrayList<>(rule.answerCmds);
             }
             
             // Выполняем с задержкой или сразу
