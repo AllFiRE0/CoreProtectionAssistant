@@ -5,8 +5,8 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
+import ru.allfire.coreprotectionassistant.config.Lang;
 import ru.allfire.coreprotectionassistant.managers.StaffManager;
-import ru.allfire.coreprotectionassistant.utils.Color;
 
 import java.util.List;
 import java.util.UUID;
@@ -47,7 +47,7 @@ public class StaffCommand implements CommandManager.SubCommand {
     @Override
     public boolean execute(CommandSender sender, String[] args) {
         if (args.length < 1) {
-            sender.sendMessage(Color.colorize("&cUsage: " + getUsage()));
+            Lang.send(sender, "staff_usage");
             return true;
         }
         
@@ -55,52 +55,35 @@ public class StaffCommand implements CommandManager.SubCommand {
         OfflinePlayer offlineTarget = Bukkit.getOfflinePlayer(targetName);
         
         if (!offlineTarget.hasPlayedBefore() && !offlineTarget.isOnline()) {
-            sender.sendMessage(Color.colorize(
-                plugin.getConfigManager().getLangConfig().getString("messages.player_not_found",
-                    "%prefix% &cPlayer not found")
-                    .replace("%player%", targetName)
-            ));
+            Lang.send(sender, "player_not_found", "player", targetName);
             return true;
         }
         
         UUID targetUuid = offlineTarget.getUniqueId();
         
-        sender.sendMessage(Color.colorize(
-            plugin.getConfigManager().getLangConfig().getString("messages.staff_header",
-                "&8&m-----&r &cStaff: &f%player% &8&m-----")
-                .replace("%player%", offlineTarget.getName())
-        ));
+        Lang.send(sender, "staff_header", "player", offlineTarget.getName());
         
         StaffManager.StaffStats stats = plugin.getStaffManager().getStaffStats(targetUuid);
         
-        sendMessage(sender, "staff_bans", stats.bansCount);
-        sendMessage(sender, "staff_mutes", stats.mutesCount);
-        sendMessage(sender, "staff_kicks", stats.kicksCount);
-        sendMessage(sender, "staff_gives", stats.givesCount);
-        sendMessage(sender, "staff_gamemode_changes", stats.gamemodeChanges);
+        Lang.send(sender, "staff_bans", "value", String.valueOf(stats.bansCount));
+        Lang.send(sender, "staff_mutes", "value", String.valueOf(stats.mutesCount));
+        Lang.send(sender, "staff_kicks", "value", String.valueOf(stats.kicksCount));
+        Lang.send(sender, "staff_gives", "value", String.valueOf(stats.givesCount));
+        Lang.send(sender, "staff_gamemode_changes", "value", String.valueOf(stats.gamemodeChanges));
         
-        // Abuse score
         int abuseScore = plugin.getAbuseScoreManager().getScore(targetUuid);
         String scoreColor = abuseScore >= 50 ? "&c" : (abuseScore >= 30 ? "&e" : "&a");
-        sender.sendMessage(Color.colorize(
-            plugin.getConfigManager().getLangConfig().getString("messages.staff_abuse_score",
-                "&7Abuse score: " + scoreColor + "%value%%")
-                .replace("%value%", String.valueOf(abuseScore))
-        ));
+        String message = Lang.get("staff_abuse_score")
+            .replace("%value%", scoreColor + abuseScore + "%");
+        if (!message.isEmpty()) {
+            sender.sendMessage(Lang.colorize(message));
+        }
         
-        // Активные предупреждения
         plugin.getWarnManager().getActiveWarningsCount(targetUuid).thenAccept(count -> {
-            sendMessage(sender, "staff_warnings_count", count);
+            Lang.send(sender, "staff_warnings_count", "value", String.valueOf(count));
         });
         
         return true;
-    }
-    
-    private void sendMessage(CommandSender sender, String key, Object value) {
-        String message = plugin.getConfigManager().getLangConfig()
-            .getString("messages." + key, "&7" + key + ": &f%value%")
-            .replace("%value%", String.valueOf(value));
-        sender.sendMessage(Color.colorize(message));
     }
     
     @Override

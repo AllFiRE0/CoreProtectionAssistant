@@ -3,7 +3,6 @@ package ru.allfire.coreprotectionassistant.commands;
 import org.bukkit.command.CommandSender;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
 import ru.allfire.coreprotectionassistant.config.Lang;
-import ru.allfire.coreprotectionassistant.utils.Color;
 
 import java.util.List;
 
@@ -50,16 +49,7 @@ public class ReloadCommand implements CommandManager.SubCommand {
         
         long loadTime = System.currentTimeMillis() - startTime;
         
-        // Получаем префикс и сообщение
-        String prefix = Lang.getPrefix();
-        String message = Lang.get("reload_success");
-        
-        // Заменяем %prefix% и %time%
-        String finalMessage = message
-            .replace("%prefix%", prefix)
-            .replace("%time%", String.valueOf(loadTime));
-        
-        sender.sendMessage(Color.colorize(finalMessage));
+        Lang.send(sender, "reload_success", "time", String.valueOf(loadTime));
         
         plugin.getLogger().info("Configuration reloaded by " + sender.getName() + " in " + loadTime + "ms");
         

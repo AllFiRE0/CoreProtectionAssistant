@@ -9,7 +9,7 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import ru.allfire.coreprotectionassistant.CoreProtectionAssistant;
-import ru.allfire.coreprotectionassistant.utils.Color;
+import ru.allfire.coreprotectionassistant.config.Lang;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,35 +29,33 @@ public class ReportCommandExecutor implements CommandExecutor, TabCompleter {
                              @NotNull String label, @NotNull String[] args) {
         
         if (!(sender instanceof Player player)) {
-            sender.sendMessage(Color.colorize("&cThis command can only be used by players"));
+            Lang.send(sender, "report_player_only");
             return true;
         }
         
         if (!player.hasPermission("cpa.report")) {
-            player.sendMessage(Color.colorize("&cNo permission"));
+            Lang.send(sender, "no_permission");
             return true;
         }
         
         if (args.length < 2) {
-            player.sendMessage(Color.colorize("&cUsage: /report <player> <reason>"));
+            Lang.send(sender, "report_usage");
             return true;
         }
         
         String targetName = args[0];
         Player target = Bukkit.getPlayer(targetName);
         
-        // Проверяем, что цель существует
         if (target == null) {
             OfflinePlayer offlineTarget = Bukkit.getOfflinePlayer(targetName);
             if (!offlineTarget.hasPlayedBefore()) {
-                player.sendMessage(Color.colorize("&cPlayer not found"));
+                Lang.send(sender, "player_not_found", "player", targetName);
                 return true;
             }
         }
         
-        // Проверяем, что не жалуется сам на себя
         if (targetName.equalsIgnoreCase(player.getName())) {
-            player.sendMessage(Color.colorize("&cYou cannot report yourself"));
+            Lang.send(sender, "report_self");
             return true;
         }
         
@@ -65,7 +63,7 @@ public class ReportCommandExecutor implements CommandExecutor, TabCompleter {
         
         OfflinePlayer offlineTarget = Bukkit.getOfflinePlayer(targetName);
         var result = plugin.getReportManager().createReport(player, offlineTarget, reason);
-        player.sendMessage(Color.colorize(result.message()));
+        player.sendMessage(Lang.colorize(result.message()));
         
         return true;
     }
@@ -78,7 +76,6 @@ public class ReportCommandExecutor implements CommandExecutor, TabCompleter {
             String partialName = args[0].toLowerCase();
             List<String> suggestions = new ArrayList<>();
             
-            // Онлайн игроки
             for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
                 String name = onlinePlayer.getName();
                 if (!name.equals(sender.getName()) && name.toLowerCase().startsWith(partialName)) {
@@ -86,7 +83,6 @@ public class ReportCommandExecutor implements CommandExecutor, TabCompleter {
                 }
             }
             
-            // Оффлайн игроки (до 20)
             int offlineCount = 0;
             for (OfflinePlayer offlinePlayer : Bukkit.getOfflinePlayers()) {
                 if (offlineCount >= 20) break;
