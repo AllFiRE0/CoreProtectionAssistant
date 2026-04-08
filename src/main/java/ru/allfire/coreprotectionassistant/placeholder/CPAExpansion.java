@@ -68,11 +68,9 @@ public class CPAExpansion extends PlaceholderExpansion {
     }
     
     private String processPlaceholder(UUID uuid, String params) {
-        // Если параметр содержит имя игрока (например, player_warnings_count_AllF1RE)
         if (params.contains("_")) {
             String[] parts = params.split("_");
             
-            // Проверяем, не указано ли имя игрока в конце
             if (parts.length >= 3) {
                 String possiblePlayerName = parts[parts.length - 1];
                 OfflinePlayer target = Bukkit.getOfflinePlayer(possiblePlayerName);
@@ -83,7 +81,6 @@ public class CPAExpansion extends PlaceholderExpansion {
             }
         }
         
-        // Основная обработка
         if (params.startsWith("player_")) {
             return processPlayerPlaceholder(uuid, params.substring(7));
         } else if (params.startsWith("staff_")) {
@@ -98,7 +95,6 @@ public class CPAExpansion extends PlaceholderExpansion {
     private String processPlayerPlaceholder(UUID uuid, String param) {
         var hook = plugin.getCoreProtectHook();
         
-        // Убираем возможный суффикс с именем игрока
         if (param.contains("_")) {
             String[] parts = param.split("_");
             OfflinePlayer target = Bukkit.getOfflinePlayer(parts[parts.length - 1]);
@@ -116,7 +112,7 @@ public class CPAExpansion extends PlaceholderExpansion {
             case "chests_opened":
                 return String.valueOf(hook.getChestsOpened(uuid, 0).join());
             case "commands_count":
-                return String.valueOf(hook.getCommandsUsed(uuid, 0).join());
+                return String.valueOf(plugin.getDatabaseManager().getTotalCommandsUsed(uuid).join());
             case "deaths":
                 return String.valueOf(hook.getDeaths(uuid, 0).join());
             case "kills":
@@ -141,7 +137,7 @@ public class CPAExpansion extends PlaceholderExpansion {
             default:
                 if (param.startsWith("cmd_")) {
                     String command = param.substring(4);
-                    return String.valueOf(plugin.getDatabaseManager().getCommandCount(uuid, command).join());
+                    return String.valueOf(plugin.getDatabaseManager().getPlayerCommandCount(uuid, command).join());
                 }
                 return "0";
         }
