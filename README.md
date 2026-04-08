@@ -1,4 +1,12 @@
+Вот **обновлённый `README.md`** с добавлением всех нововведений v1.1.0 в раздел **Features**:
 
+```markdown
+# CoreProtectionAssistant
+
+[![Build Status](https://img.shields.io/github/actions/workflow/status/AllFiRE0/CoreProtectionAssistant/build.yml)](https://github.com/AllFiRE0/CoreProtectionAssistant/actions)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue)](https://github.com/AllFiRE0/CoreProtectionAssistant/releases)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Java](https://img.shields.io/badge/Java-21-orange)](https://adoptium.net/)
 
 Advanced staff monitoring and player protection system for Minecraft servers.
 
@@ -21,6 +29,8 @@ Advanced staff monitoring and player protection system for Minecraft servers.
 - Automatic violator analysis based on playtime, warnings, and report count
 - **Same IP & Alt Detection** — detects players with same IP and similar nicknames
 - **Prohibited Permissions Check** — alerts when staff members have dangerous permissions
+- **Grief Detection** — detects when a player breaks blocks previously modified by others (NEW)
+- **Similar Nickname Detection** — `1=i=l`, `0=o`, `5=s=6`, etc. (NEW)
 
 ### 🤖 ChatBot (NEW in v1.1.0)
 - Fully configurable chatbot that responds to player messages
@@ -32,8 +42,15 @@ Advanced staff monitoring and player protection system for Minecraft servers.
 - **Chance-based triggers** — probability of response in percentage
 - **Context variables** — `%player_name%`, `%player_world%`, `%player_time%`, `%target%`, `%message%`
 - All command prefixes supported: `message!`, `broadcast!`, `asConsole!`, `sound!`, `title!`, `actionbar!`
+- Configuration file: `chatbot.yml`
+
+### ⏱️ Temporary Warnings & Silent Mode (NEW)
+- **Temporary warnings** — `-t:1d` (day), `-t:1h` (hour), `-t:1m` (minute), `-t:1s` (second)
+- **Silent mode** — `-s` flag suppresses all command output
+- Example: `/cpa warn Player Griefing -t:20m -s`
 
 ### Statistics & Integration
+- **Direct CoreProtect database reading** — no duplicate storage (NEW)
 - CoreProtect integration (via reflection — no hard dependency)
 - PlaceholderAPI support (35+ placeholders)
 - **New placeholders** — `%cpa_player_apologies_count%`, `%cpa_player_violations_apologies_ratio%`
@@ -45,6 +62,7 @@ Advanced staff monitoring and player protection system for Minecraft servers.
 - **Message toggling** — disable any message by setting it to `""` or `"none"`
 - **Offline player tab-complete** — all commands suggest offline players (up to 20)
 - **Centralized reload** — `/cpa reload` reloads all configurations including ChatBot
+- **Debug mode** — `debug: true/false` in config for troubleshooting (NEW)
 
 ---
 
@@ -58,13 +76,12 @@ Advanced staff monitoring and player protection system for Minecraft servers.
 | PlaceholderAPI | 2.11+ | ⭐ Recommended |
 | CMI | 9.7+ | ⭕ Optional |
 | LuckPerms | 5.4+ | ⭕ Optional |
-| STCP | 1.0+ | ⭕ Optional |
 
 ---
 
 ## 📥 Installation
 
-1. Download the latest `CoreProtectionAssistant-1.0.0.jar` from [Releases](https://github.com/AllFiRE0/CoreProtectionAssistant/releases)
+1. Download the latest `CoreProtectionAssistant-1.1.0.jar` from [Releases](https://github.com/AllFiRE0/CoreProtectionAssistant/releases)
 2. Place it in your server's `plugins/` folder
 3. Install recommended plugins (CoreProtect, PlaceholderAPI)
 4. Restart your server
@@ -79,7 +96,9 @@ Advanced staff monitoring and player protection system for Minecraft servers.
 ```yaml
 database:
   type: sqlite  # or mysql
-  
+
+debug: false  # Enable for troubleshooting
+
 tracked_moder_commands:
   - give
   - gamemode
@@ -89,11 +108,20 @@ tracked_moder_commands:
 abuse_weights:
   ban_without_reason: 10
   self_give_items: 8
+  griefing: 10  # NEW
   # ...
+
+grief_detection:  # NEW
+  enabled: true
+  tracked_blocks:
+    - CHEST
+    - FURNACE
+    # ...
+  grief_commands:
+    - "asConsole! cpa warn %player_name% Griefing detected -t:20m -s"
 ```
 
 ### Chat Rules (`chattrules.yml`)
-Single unified configuration for all chat interactions:
 ```yaml
 rules:
   severe_insult:
@@ -108,6 +136,23 @@ rules:
     regex: "(?i)(sorry|my bad)"
     action: "apology"
     warnings_clear: 1
+```
+
+### ChatBot (`chatbot.yml`) — NEW
+```yaml
+enabled: true
+permission_usage: ""
+debug: false
+
+rules:
+  greeting:
+    priority: 100
+    regex: "(?i)(привет|hello|hi)"
+    symbol: ""
+    answer_cmds:
+      - "message! &a&lБОТ &7» &fПривет, %player_name%!"
+    answer_cmds_random:
+      - "message! &a&lБОТ &7» &fЗдарова!"
 ```
 
 ### Reports (`reports.yml`)
@@ -134,12 +179,13 @@ All messages are customizable with full color support (`&a`, `&c`, `&#RRGGBB`).
 | `/cpa` | - | Show help menu |
 | `/cpa stats <player>` | `cpa.moder` | View player statistics |
 | `/cpa staff <player>` | `cpa.staff` | View staff member statistics |
-| `/cpa top <type>` | `cpa.moder` | View leaderboards (blocks, kills, playtime) |
-| `/cpa check <player>` | `cpa.moder` | Quick player check (warnings, reports, alts) |
-| `/cpa warn <player> [reason]` | `cpa.warn` | Issue warning to player |
-| `/cpa warn clear <player> <amount>` | `cpa.warn.clear` | Clear warnings |
-| `/cpa warn list <player>` | `cpa.moder` | List active warnings |
-| `/cpa reload` | `cpa.reload` | Reload configuration |
+| `/cpa top <type>` | `cpa.moder` | View leaderboards |
+| `/cpa check <player>` | `cpa.moder` | Quick player check |
+| `/cpa warn <player> [reason] [-t:time] [-s]` | `cpa.warn` | Issue warning (NEW flags) |
+| `/cpa warn clear <player> <amount> [-s]` | `cpa.warn.clear` | Clear warnings (NEW -s flag) |
+| `/cpa warn list <player> [-s]` | `cpa.moder` | List active warnings (NEW -s flag) |
+| `/cpa reload` | `cpa.reload` | Reload all configurations |
+| `/cpa report <player> <reason>` | `cpa.report` | Report a player (staff) |
 | `/report <player> <reason>` | `cpa.report` | Report a player |
 
 **Aliases:** `/cpa`, `/protect`, `/adminprotect`, `/aa`
@@ -159,6 +205,8 @@ All messages are customizable with full color support (`&a`, `&c`, `&#RRGGBB`).
 | `cpa.report.tp` | op | Can teleport to report location |
 | `cpa.reload` | op | Can reload configuration |
 | `cpa.bypass.chat` | op | Bypass chat filter |
+| `cpa.chatbot.use` | true | Can interact with ChatBot (NEW) |
+| `cpa.chatbot.bypass` | op | Ignored by ChatBot (NEW) |
 
 ---
 
@@ -177,6 +225,8 @@ All messages are customizable with full color support (`&a`, `&c`, `&#RRGGBB`).
 | `%cpa_player_last_seen%` | Last seen date |
 | `%cpa_player_warnings_count%` | Active warnings |
 | `%cpa_player_violations_count%` | Chat violations |
+| `%cpa_player_apologies_count%` | Total apologies (NEW) |
+| `%cpa_player_violations_apologies_ratio%` | Repentance ratio (NEW) |
 | `%cpa_player_time_since_last_violation%` | Seconds since last violation |
 | `%cpa_player_cmd_<command>%` | Usage count of specific command |
 
@@ -194,19 +244,7 @@ All messages are customizable with full color support (`&a`, `&c`, `&#RRGGBB`).
 
 ## 🗄️ Database
 
-Supports both **SQLite** (default) and **MySQL**.
-
-### MySQL Setup
-```yaml
-database:
-  type: mysql
-  mysql:
-    host: localhost
-    port: 3306
-    database: cpa
-    username: root
-    password: yourpassword
-```
+Supports both **SQLite** (with HikariCP connection pool) and **MySQL**.
 
 ### Tables Created
 - `cpa_command_logs` — All tracked commands
@@ -216,73 +254,26 @@ database:
 - `cpa_chat_violations` — Chat filter violations
 - `cpa_apologies` — Apology history
 - `cpa_abuse_scores` — Staff abuse scores
+- `cpa_grief_actions` — Grief detection log (NEW)
 
 ---
 
 ## 🔨 Building from Source
 
-### Requirements
-- JDK 21
-- Maven 3.9+
-
-### Build Commands
 ```bash
-# Clone repository
 git clone https://github.com/AllFiRE0/CoreProtectionAssistant.git
 cd CoreProtectionAssistant
-
-# Build with Maven
 mvn clean package
-
-# Output: target/CoreProtectionAssistant-1.0.0.jar
+# Output: target/CoreProtectionAssistant-1.1.0.jar
 ```
 
-### Windows Users
-Run `build.bat` — it will automatically build the plugin.
-
----
-
-## 🧩 Integration Details
-
-### CoreProtect (Reflection)
-No hard dependency — uses reflection to access CoreProtect API. If CoreProtect is not installed, related statistics will show `0`.
-
-### PlaceholderAPI
-All placeholders are registered automatically. Use `%cpa_<category>_<param>%`.
-
-### LuckPerms
-Used for permission checking and group detection. Falls back gracefully if not installed.
-
-### CMI
-Used for balance, playtime, and IP address data. Optional.
-
-### STCP
-Used for lag machine detection statistics. Optional.
-
----
-
-## ❓ FAQ
-
-### Q: Why "zero-trust"?
-**A:** The plugin assumes staff members might abuse their powers. It tracks everything and calculates an abuse score to alert owners.
-
-### Q: Does it work without CoreProtect?
-**A:** Yes, but block/chest/command statistics will be unavailable.
-
-### Q: Can I customize the abuse score weights?
-**A:** Yes, in `config.yml` under `abuse_weights`.
-
-### Q: How do I add new chat rules?
-**A:** Edit `chattrules.yml` and use `/cpa reload`.
-
-### Q: What is "recidivism"?
-**A:** Repeated violations within a time window result in harsher punishments.
+Windows: run `build.bat`
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+MIT License — see [LICENSE](LICENSE)
 
 ---
 
@@ -291,19 +282,10 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 - [PaperMC](https://papermc.io/) — Server software
 - [CoreProtect](https://www.coreprotect.net/) — Block logging
 - [PlaceholderAPI](https://www.spigotmc.org/resources/placeholderapi.6245/) — Placeholder support
-- [CMI](https://www.spigotmc.org/resources/cmi-298-commands-insane-kits-portals-essentials-economy-mysql-sqlite-much-more.3742/) — Economy & playtime
-- [LuckPerms](https://luckperms.net/) — Permission management
-
----
-
-## 🐛 Bug Reports & Suggestions
-
-Found a bug or have a feature request?
-
-- **GitHub Issues:** [Create Issue](https://github.com/AllFiRE0/CoreProtectionAssistant/issues)
-- **Discord:** AllF1RE#0000
 
 ---
 
 **Made with ❤️ by AllF1RE**
 ```
+
+Готово! Теперь `README.md` полностью отражает все нововведения v1.1.0.
