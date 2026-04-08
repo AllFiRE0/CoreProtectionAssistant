@@ -72,6 +72,7 @@ public class CoreProtectHook {
             for (Method method : coreProtectAPI.getClass().getMethods()) {
                 if (method.getName().equals("blockLookup")) {
                     blockLookupMethod = method;
+                    plugin.getLogger().info("Found blockLookup method");
                     break;
                 }
             }
@@ -110,6 +111,10 @@ public class CoreProtectHook {
                 // Старая версия
                 result = performLookupMethod.invoke(coreProtectAPI,
                     timeSeconds, users, null, null, actions, null, null, 0, null);
+            } else if (paramCount == 6) {
+                // Ещё более старая
+                result = performLookupMethod.invoke(coreProtectAPI,
+                    100000, timeSeconds > 0 ? List.of(timeSeconds) : null, users, actions, null, null);
             } else {
                 plugin.getLogger().warning("Unknown performLookup signature with " + paramCount + " parameters");
                 return List.of();
@@ -129,83 +134,63 @@ public class CoreProtectHook {
     }
     
     /**
-     * Получить историю блока (используем blockLookup если доступен)
+     * Проверить, взаимодействовал ли другой игрок с этим блоком
      */
-    public CompletableFuture<List<BlockAction>> getBlockHistory(Location loc) {
+    public CompletableFuture<Boolean> wasModifiedByOther(Location loc, String currentPlayer) {
         return CompletableFuture.supplyAsync(() -> {
-            List<BlockAction> history = new ArrayList<>();
-            
-            if (!isEnabled()) return history;
+            if (!isEnabled()) return false;
             
             try {
-                // Пробуем blockLookup (самый надёжный способ)
+                // Способ 1: blockLookup (самый точный)
                 if (blockLookupMethod != null) {
-                    org.bukkit.block.Block block = loc.getBlock();
-                    Object result = blockLookupMethod.invoke(coreProtectAPI, block, 0);
+                    Object result = blockLookupMethod.invoke(coreProtectAPI, loc.getBlock(), 0);
+                    if (result instanceof List) {
+                        @SuppressWarnings("unchecked")
+                        List<String[]> lookup = (List<String[]>) result;
+                        
+                        for (String[] row : lookup) {
+                            if (row.length >= 2) {
+                                String user = row[1];
+                                if (user != null && !user.equalsIgnoreCase(currentPlayer) && !user.equals("#null")) {
+                                    plugin.getLogger().info("Block was modified by " + user + " before " + currentPlayer);
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Способ 2: performLookup с радиусом 0
+                if (performLookupMethod != null) {
+                    int paramCount = performLookupMethod.getParameterCount();
+                    Object result;
+                    
+                    if (paramCount == 8) {
+                        result = performLookupMethod.invoke(coreProtectAPI,
+                            0, null, null, null, null, null, 0, loc);
+                    } else {
+                        return false;
+                    }
                     
                     if (result instanceof List) {
                         @SuppressWarnings("unchecked")
                         List<String[]> lookup = (List<String[]>) result;
                         
                         for (String[] row : lookup) {
-                            if (parseResultMethod != null) {
-                                try {
-                                    Object parsed = parseResultMethod.invoke(coreProtectAPI, (Object) row);
-                                    Method getPlayer = parsed.getClass().getMethod("getPlayer");
-                                    Method getTimestamp = parsed.getClass().getMethod("getTimestamp");
-                                    Method getActionId = parsed.getClass().getMethod("getActionId");
-                                    Method getType = parsed.getClass().getMethod("getType");
-                                    
-                                    String player = (String) getPlayer.invoke(parsed);
-                                    long timestamp = (long) getTimestamp.invoke(parsed) * 1000;
-                                    int actionId = (int) getActionId.invoke(parsed);
-                                    Material type = (Material) getType.invoke(parsed);
-                                    
-                                    String action = actionId == 0 ? "BREAK" : (actionId == 1 ? "PLACE" : "INTERACT");
-                                    history.add(new BlockAction(timestamp, player, action, type.name()));
-                                } catch (Exception ex) {
-                                    // fallback: используем сырые данные
-                                    if (row.length >= 2) {
-                                        history.add(new BlockAction(0, row[1], "UNKNOWN", "UNKNOWN"));
-                                    }
+                            if (row.length >= 2) {
+                                String user = row[1];
+                                if (user != null && !user.equalsIgnoreCase(currentPlayer) && !user.equals("#null")) {
+                                    return true;
                                 }
                             }
                         }
                     }
-                    return history;
                 }
-                
-                // Fallback: performLookup по координатам
-                int worldId = getWorldId(loc.getWorld().getName());
-                if (worldId == -1) return history;
-                
-                // Используем performLookup с радиусом 0 и локацией
-                // Но так как сигнатура сложная, просто возвращаем пустой список
                 
             } catch (Exception e) {
-                plugin.getLogger().warning("Failed to get block history: " + e.getMessage());
+                plugin.getLogger().warning("Failed to check block history: " + e.getMessage());
             }
             
-            return history;
-        });
-    }
-    
-    private int getWorldId(String worldName) {
-        // Заглушка — в реальности нужно кэшировать ID миров из БД CoreProtect
-        return 1;
-    }
-    
-    /**
-     * Проверить, взаимодействовал ли другой игрок с этим блоком
-     */
-    public CompletableFuture<Boolean> wasModifiedByOther(Location loc, String currentPlayer) {
-        return getBlockHistory(loc).thenApply(history -> {
-            for (BlockAction action : history) {
-                if (!action.username().equalsIgnoreCase(currentPlayer)) {
-                    plugin.getLogger().info("Block was modified by " + action.username() + " before " + currentPlayer);
-                    return true;
-                }
-            }
             return false;
         });
     }
@@ -216,9 +201,7 @@ public class CoreProtectHook {
         return CompletableFuture.supplyAsync(() -> {
             String playerName = getPlayerName(uuid);
             if (playerName == null) return 0;
-            List<String> users = List.of(playerName);
-            List<Integer> actions = List.of(0);
-            return performLookup(0, users, actions).size();
+            return performLookup(0, List.of(playerName), List.of(0)).size();
         });
     }
     
@@ -226,9 +209,7 @@ public class CoreProtectHook {
         return CompletableFuture.supplyAsync(() -> {
             String playerName = getPlayerName(uuid);
             if (playerName == null) return 0;
-            List<String> users = List.of(playerName);
-            List<Integer> actions = List.of(1);
-            return performLookup(0, users, actions).size();
+            return performLookup(0, List.of(playerName), List.of(1)).size();
         });
     }
     
@@ -236,9 +217,7 @@ public class CoreProtectHook {
         return CompletableFuture.supplyAsync(() -> {
             String playerName = getPlayerName(uuid);
             if (playerName == null) return 0;
-            List<String> users = List.of(playerName);
-            List<Integer> actions = List.of(2);
-            return performLookup(0, users, actions).size();
+            return performLookup(0, List.of(playerName), List.of(2)).size();
         });
     }
     
@@ -246,9 +225,7 @@ public class CoreProtectHook {
         return CompletableFuture.supplyAsync(() -> {
             String playerName = getPlayerName(uuid);
             if (playerName == null) return 0;
-            List<String> users = List.of(playerName);
-            List<Integer> actions = List.of(3);
-            return performLookup(0, users, actions).size();
+            return performLookup(0, List.of(playerName), List.of(3)).size();
         });
     }
     
@@ -256,9 +233,7 @@ public class CoreProtectHook {
         return CompletableFuture.supplyAsync(() -> {
             String playerName = getPlayerName(uuid);
             if (playerName == null) return 0;
-            List<String> users = List.of("#" + playerName);
-            List<Integer> actions = List.of(5);
-            return performLookup(0, users, actions).size();
+            return performLookup(0, List.of("#" + playerName), List.of(5)).size();
         });
     }
     
@@ -266,20 +241,37 @@ public class CoreProtectHook {
         return CompletableFuture.supplyAsync(() -> {
             String playerName = getPlayerName(uuid);
             if (playerName == null) return 0;
-            List<String> users = List.of(playerName);
-            List<Integer> actions = List.of(5);
-            return performLookup(0, users, actions).size();
+            return performLookup(0, List.of(playerName), List.of(5)).size();
         });
     }
     
     public CompletableFuture<Long> getFirstSeen(UUID uuid) {
-        return CompletableFuture.supplyAsync(() -> 0L);
+        return CompletableFuture.supplyAsync(() -> {
+            String playerName = getPlayerName(uuid);
+            if (playerName == null) return 0L;
+            List<String[]> results = performLookup(0, List.of(playerName), List.of(6));
+            if (!results.isEmpty() && results.get(0).length > 0) {
+                try {
+                    return Long.parseLong(results.get(0)[0]) * 1000;
+                } catch (NumberFormatException e) {}
+            }
+            return 0L;
+        });
     }
     
     public CompletableFuture<Long> getLastSeen(UUID uuid) {
         return CompletableFuture.supplyAsync(() -> {
             Player player = Bukkit.getPlayer(uuid);
             if (player != null && player.isOnline()) return System.currentTimeMillis();
+            
+            String playerName = getPlayerName(uuid);
+            if (playerName == null) return 0L;
+            List<String[]> results = performLookup(0, List.of(playerName), List.of(7));
+            if (!results.isEmpty() && results.get(results.size() - 1).length > 0) {
+                try {
+                    return Long.parseLong(results.get(results.size() - 1)[0]) * 1000;
+                } catch (NumberFormatException e) {}
+            }
             return 0L;
         });
     }
@@ -295,8 +287,6 @@ public class CoreProtectHook {
     public PlayerCache getCachedPlayer(UUID uuid) {
         return new PlayerCache();
     }
-    
-    public record BlockAction(long timestamp, String username, String action, String material) {}
     
     public static class PlayerCache {
         public int blocksBroken = 0;
