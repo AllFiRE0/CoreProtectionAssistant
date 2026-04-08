@@ -51,7 +51,7 @@ public class WarnCommand implements CommandManager.SubCommand {
         if (args.length < 1) {
             Lang.send(sender, "warn_usage");
             sender.sendMessage(Lang.colorize("&cUsage: /cpa warn clear <player> <amount> [-s]"));
-            sender.sendMessage(Lang.colorize("&cUsage: /cpa warn list <player>"));
+            sender.sendMessage(Lang.colorize("&cUsage: /cpa warn list <player> [-s]"));
             return true;
         }
         
@@ -67,12 +67,10 @@ public class WarnCommand implements CommandManager.SubCommand {
     }
     
     private boolean handleWarn(CommandSender sender, String[] args) {
-        // Парсим аргументы
         String targetName = args[0];
         
-        // Проверяем silent и время
         boolean silent = false;
-        long durationTicks = 0; // 0 = бессрочно
+        long durationTicks = 0;
         List<String> reasonParts = new ArrayList<>();
         
         for (int i = 1; i < args.length; i++) {
@@ -101,7 +99,6 @@ public class WarnCommand implements CommandManager.SubCommand {
             staffName = player.getName();
         }
         
-        // Выдаём варн
         plugin.getWarnManager().warnPlayer(
             offlineTarget.getUniqueId(),
             offlineTarget.getName(),
@@ -114,10 +111,6 @@ public class WarnCommand implements CommandManager.SubCommand {
         if (!silent) {
             String durationStr = durationTicks > 0 ? " (" + formatDuration(durationTicks) + ")" : "";
             Lang.send(sender, "warn_success", "player", offlineTarget.getName(), "reason", reason + durationStr);
-        }
-        
-        // Логируем в консоль (всегда, кроме silent)
-        if (!silent) {
             plugin.getLogger().info("Warning issued to " + offlineTarget.getName() + 
                 " by " + staffName + ": " + reason + (durationTicks > 0 ? " [" + formatDuration(durationTicks) + "]" : ""));
         }
@@ -136,46 +129,52 @@ public class WarnCommand implements CommandManager.SubCommand {
             return true;
         }
         
-        // Проверяем silent
         boolean silent = false;
-        int amountIndex = 1;
-        for (int i = 0; i < args.length; i++) {
-            if (args[i].equalsIgnoreCase("-s")) {
+        String targetName = null;
+        Integer amount = null;
+        
+        for (String arg : args) {
+            if (arg.equalsIgnoreCase("-s")) {
                 silent = true;
-                if (i == 1) amountIndex = 2;
+            } else if (targetName == null) {
+                targetName = arg;
+            } else if (amount == null) {
+                try {
+                    amount = Integer.parseInt(arg);
+                    if (amount < 1) amount = 1;
+                } catch (NumberFormatException e) {
+                    // Пропускаем
+                }
             }
         }
         
-        String targetName = args[0];
-        OfflinePlayer offlineTarget = Bukkit.getOfflinePlayer(targetName);
-        
-        if (!offlineTarget.hasPlayedBefore() && !offlineTarget.isOnline()) {
-            if (!silent) Lang.send(sender, "player_not_found", "player", targetName);
+        if (targetName == null || amount == null) {
+            if (!silent) Lang.send(sender, "warn_clear_usage");
             return true;
         }
         
-        int amount;
-        try {
-            amount = Integer.parseInt(args[amountIndex]);
-            if (amount < 1) amount = 1;
-        } catch (NumberFormatException e) {
-            if (!silent) Lang.send(sender, "warn_invalid_amount");
+        final String finalTargetName = targetName;
+        final int finalAmount = amount;
+        final boolean finalSilent = silent;
+        
+        OfflinePlayer offlineTarget = Bukkit.getOfflinePlayer(finalTargetName);
+        if (!offlineTarget.hasPlayedBefore() && !offlineTarget.isOnline()) {
+            if (!finalSilent) Lang.send(sender, "player_not_found", "player", finalTargetName);
             return true;
         }
         
         String clearedBy = sender instanceof Player player ? player.getName() : "CONSOLE";
-        plugin.getWarnManager().clearWarnings(offlineTarget.getUniqueId(), amount, clearedBy);
+        plugin.getWarnManager().clearWarnings(offlineTarget.getUniqueId(), finalAmount, clearedBy);
         
-        if (!silent) {
-            Lang.send(sender, "warn_clear_success", "amount", String.valueOf(amount), "player", offlineTarget.getName());
-            plugin.getLogger().info("Cleared " + amount + " warnings from " + offlineTarget.getName() + " by " + clearedBy);
+        if (!finalSilent) {
+            Lang.send(sender, "warn_clear_success", "amount", String.valueOf(finalAmount), "player", offlineTarget.getName());
+            plugin.getLogger().info("Cleared " + finalAmount + " warnings from " + offlineTarget.getName() + " by " + clearedBy);
         }
         
         return true;
     }
     
     private boolean handleList(CommandSender sender, String[] args) {
-        // Проверяем silent (для list он не особо нужен, но добавим)
         boolean silent = false;
         String targetName = null;
         
@@ -192,29 +191,30 @@ public class WarnCommand implements CommandManager.SubCommand {
             return true;
         }
         
-        OfflinePlayer offlineTarget = Bukkit.getOfflinePlayer(targetName);
+        final String finalTargetName = targetName;
+        final boolean finalSilent = silent;
+        
+        OfflinePlayer offlineTarget = Bukkit.getOfflinePlayer(finalTargetName);
         if (!offlineTarget.hasPlayedBefore() && !offlineTarget.isOnline()) {
-            if (!silent) Lang.send(sender, "player_not_found", "player", targetName);
+            if (!finalSilent) Lang.send(sender, "player_not_found", "player", finalTargetName);
             return true;
         }
         
         plugin.getWarnManager().getWarnings(offlineTarget.getUniqueId()).thenAccept(warnings -> {
             if (warnings.isEmpty()) {
-                if (!silent) Lang.send(sender, "warn_no_warnings", "player", offlineTarget.getName());
+                if (!finalSilent) Lang.send(sender, "warn_no_warnings", "player", offlineTarget.getName());
                 return;
             }
             
-            if (!silent) {
+            if (!finalSilent) {
                 String header = Lang.get("warn_list_header").replace("%player%", offlineTarget.getName());
                 sender.sendMessage(Lang.colorize(header));
-            }
-            
-            for (var warn : warnings) {
-                String date = new SimpleDateFormat("yyyy-MM-dd HH:mm").format(new Date(warn.getCreatedAt()));
-                String expires = warn.getExpiresAt() > 0 ? 
-                    " &7(до " + new SimpleDateFormat("yyyy-MM-dd HH:mm").format(new Date(warn.getExpiresAt())) + ")" : "";
                 
-                if (!silent) {
+                for (var warn : warnings) {
+                    String date = new SimpleDateFormat("yyyy-MM-dd HH:mm").format(new Date(warn.getCreatedAt()));
+                    String expires = warn.getExpiresAt() > 0 ? 
+                        " &7(до " + new SimpleDateFormat("yyyy-MM-dd HH:mm").format(new Date(warn.getExpiresAt())) + ")" : "";
+                    
                     sender.sendMessage(Lang.colorize(
                         "&7[&f" + date + "&7] &c" + warn.getStaffName() + " &7→ &f" + warn.getReason() + expires
                     ));
@@ -239,7 +239,7 @@ public class WarnCommand implements CommandManager.SubCommand {
                 default -> 0;
             };
             
-            return seconds * 20; // В тики
+            return seconds * 20;
         }
         return 0;
     }
@@ -279,7 +279,6 @@ public class WarnCommand implements CommandManager.SubCommand {
                             .filter(n -> n.toLowerCase().startsWith(args[1].toLowerCase()))
                             .toList()
                     );
-                    // Добавляем оффлайн игроков
                     for (OfflinePlayer off : Bukkit.getOfflinePlayers()) {
                         String name = off.getName();
                         if (name != null && name.toLowerCase().startsWith(args[1].toLowerCase())) {
@@ -302,16 +301,14 @@ public class WarnCommand implements CommandManager.SubCommand {
                         .filter(n -> n.toLowerCase().startsWith(args[1].toLowerCase()))
                         .toList();
                 }
+                if (args.length == 3) {
+                    return List.of("-s");
+                }
             } else {
-                // Обычный warn
                 if (args.length == 2) {
                     return List.of("-t:1h", "-t:1d", "-t:30m", "-s");
                 }
                 if (args.length >= 3) {
-                    String lastArg = args[args.length - 2];
-                    if (lastArg.startsWith("-t:")) {
-                        return List.of("-s");
-                    }
                     return List.of("-t:1h", "-t:1d", "-t:30m", "-s");
                 }
             }
